@@ -75,13 +75,13 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         Some(preset.description.to_string()),
     )?);
 
-    if let Some((_, cfg)) = &loaded_config {
-        if let Some(rule) = &cfg.rules.message {
-            message_pattern = Some(build_message_pattern(
-                &rule.pattern,
-                rule.description.clone(),
-            )?);
-        }
+    if let Some((_, cfg)) = &loaded_config
+        && let Some(rule) = &cfg.rules.message
+    {
+        message_pattern = Some(build_message_pattern(
+            &rule.pattern,
+            rule.description.clone(),
+        )?);
     }
 
     if let Some(pattern) = &args.message_pattern {
@@ -90,10 +90,10 @@ fn run_lint(args: LintArgs) -> Result<i32> {
             .clone()
             .or_else(|| Some(format!("Commit message must match pattern `{pattern}`")));
         message_pattern = Some(build_message_pattern(pattern, desc)?);
-    } else if args.message_description.is_some() {
-        if let Some(mp) = message_pattern.as_mut() {
-            mp.description = args.message_description.clone();
-        }
+    } else if args.message_description.is_some()
+        && let Some(mp) = message_pattern.as_mut()
+    {
+        mp.description = args.message_description.clone();
     }
 
     let mut options = LintOptions {
