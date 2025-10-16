@@ -1,0 +1,32 @@
+{
+  "name": "gitfluff",
+  "version": "0.1.0",
+  "description": "Commit message linter and formatter.",
+  "license": "MIT",
+  "bin": {
+    "gitfluff": "./bin/gitfluff.js"
+  },
+  "files": [
+    "bin",
+    "dist",
+    "index.js",
+    "install.js",
+    "README.md"
+  ],
+  "main": "index.js",
+  "scripts": {
+    "postinstall": "node install.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Goldziher/gitfluff.git"
+  },
+  "keywords": [
+    "git",
+    "commit",
+    "lint",
+    "conventional",
+    "format"
+  ],
+  "author": "Na'aman Hirschfeld <nhirschfeld@gmail.com>"
+}
