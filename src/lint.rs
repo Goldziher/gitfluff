@@ -22,17 +22,12 @@ pub struct CleanupRule {
     pub pattern_source: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BodyPolicy {
+    #[default]
     Any,
     SingleLine,
     RequireBody,
-}
-
-impl Default for BodyPolicy {
-    fn default() -> Self {
-        BodyPolicy::Any
-    }
 }
 
 #[derive(Debug, Default)]
@@ -82,14 +77,14 @@ fn evaluate_message(message: &str, options: &LintOptions) -> Vec<String> {
     let header = message.lines().next().unwrap_or("").trim();
     if header.is_empty() {
         violations.push("Commit message header must not be empty".to_string());
-    } else if let Some(pattern) = &options.message_pattern {
-        if !pattern.regex.is_match(header) {
-            let desc = pattern
-                .description
-                .as_deref()
-                .unwrap_or("Commit message does not match required pattern");
-            violations.push(desc.to_string());
-        }
+    } else if let Some(pattern) = &options.message_pattern
+        && !pattern.regex.is_match(header)
+    {
+        let desc = pattern
+            .description
+            .as_deref()
+            .unwrap_or("Commit message does not match required pattern");
+        violations.push(desc.to_string());
     }
 
     match options.body_policy {

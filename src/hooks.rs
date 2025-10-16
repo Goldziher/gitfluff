@@ -21,7 +21,7 @@ pub fn install_hook(start_dir: &Path, kind: HookKind, write: bool, force: bool) 
     })?;
 
     let hook_name = hook_filename(kind);
-    let hook_path = hooks_dir.join(&hook_name);
+    let hook_path = hooks_dir.join(hook_name);
 
     if hook_path.exists() && !force {
         bail!(
