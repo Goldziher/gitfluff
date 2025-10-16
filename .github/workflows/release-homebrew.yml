@@ -1,9 +1,8 @@
 name: Release with Homebrew
 
 on:
-  push:
-    tags:
-      - "v*"
+  release:
+    types: [published]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
