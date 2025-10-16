@@ -2,6 +2,11 @@
 name = "gitfluff"
 version = "0.1.0"
 edition = "2024"
+description = "Commit message linting tool with presets, custom formats, and cleanup automation."
+license = "MIT"
+repository = "https://github.com/Goldziher/gitfluff"
+homepage = "https://github.com/Goldziher/gitfluff"
+readme = "README.md"
 
 [dependencies]
 anyhow = "1"
