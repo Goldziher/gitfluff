@@ -8,7 +8,6 @@
   },
   "files": [
     "bin",
-    "dist",
     "index.js",
     "install.js",
     "README.md"
@@ -28,5 +27,9 @@
     "conventional",
     "format"
   ],
-  "author": "Na'aman Hirschfeld <nhirschfeld@gmail.com>"
+  "author": "Na'aman Hirschfeld <nhirschfeld@gmail.com>",
+  "dependencies": {
+    "adm-zip": "^0.5.12",
+    "tar": "^6.2.1"
+  }
 }

@@ -41,7 +41,7 @@ jobs:
         with:
           bin: gitfluff
           target: ${{ matrix.target }}
-          tar: unix
-          zip: windows
+          tar: all
+          zip: none
           archive: gitfluff-${{ matrix.target }}
           token: ${{ secrets.GITHUB_TOKEN }}

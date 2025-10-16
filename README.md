@@ -14,7 +14,7 @@
 
 ## Installation
 
-We plan to distribute `gitfluff` through the major package ecosystems. Once releases are published you will be able to install using your preferred channel:
+`gitfluff` ships prebuilt binaries for macOS, Linux, and Windows. Install from your preferred ecosystem:
 
 ```bash
 # Homebrew tap
@@ -24,14 +24,18 @@ brew install gitfluff
 # Cargo
 cargo install gitfluff
 
-# npm (ships prebuilt binaries)
+# npm
 npm install -g gitfluff
 
-# pip (ships prebuilt binaries)
+# PyPI
 pip install gitfluff
+
+# On-demand (no install)
+npx gitfluff@latest --version
+uvx gitfluff --version
 ```
 
-Until then you can build from source:
+To build from source instead:
 
 ```bash
 git clone https://github.com/Goldziher/gitfluff.git
@@ -147,7 +151,7 @@ Add the following to `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.1.0
+    rev: v0.1.1
     hooks:
       - id: gitfluff-lint
         name: gitfluff (lint)
