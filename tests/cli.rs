@@ -252,10 +252,10 @@ fn hook_behaves_like_precommit_example() {
         .to_path_buf();
     let path_var = env::var("PATH").unwrap_or_default();
     let mut hook_cmd = Command::new("sh");
-    hook_cmd
-        .arg(&script_path)
-        .arg(&commit_msg_file)
-        .env("PATH", format!("{}:{}", gitfluff_bin_dir.display(), path_var));
+    hook_cmd.arg(&script_path).arg(&commit_msg_file).env(
+        "PATH",
+        format!("{}:{}", gitfluff_bin_dir.display(), path_var),
+    );
     hook_cmd.current_dir(dir.path());
     hook_cmd.assert().success();
 
