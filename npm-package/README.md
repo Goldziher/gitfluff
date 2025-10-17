@@ -13,17 +13,17 @@ npm install -g gitfluff
 
 **Run without installation:**
 ```bash
-npx gitfluff@0.2.1 --version
+npx gitfluff@0.3.0 --version
 ```
 
 **Lint a commit message:**
 ```bash
-gitfluff lint --from-file .git/COMMIT_EDITMSG
+gitfluff lint .git/COMMIT_EDITMSG
 ```
 
 **Auto-clean and rewrite:**
 ```bash
-gitfluff lint --from-file .git/COMMIT_EDITMSG --write
+gitfluff lint .git/COMMIT_EDITMSG --write
 ```
 
 ## Hook Integrations
@@ -50,7 +50,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.2.1
+    rev: v0.3.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
@@ -70,7 +70,7 @@ npx husky init
 
 **Create commit-msg hook:**
 ```bash
-echo 'npx gitfluff lint --from-file "$1"' > .husky/commit-msg
+echo 'npx gitfluff lint "$1"' > .husky/commit-msg
 ```
 
 **Make it executable:**
@@ -85,7 +85,7 @@ chmod +x .husky/commit-msg
 commit-msg:
   commands:
     gitfluff:
-      run: npx gitfluff lint --from-file {1}
+      run: npx gitfluff lint {1}
 ```
 
 **Install hooks:**

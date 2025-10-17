@@ -1,7 +1,7 @@
 - id: gitfluff-lint
   name: gitfluff (lint)
   description: Lint commit messages using gitfluff
-  entry: gitfluff lint --from-file
+  entry: gitfluff lint
   language: system
   stages: [commit-msg]
   pass_filenames: true
@@ -11,7 +11,7 @@
 - id: gitfluff-write
   name: gitfluff (lint + write)
   description: Lint and rewrite commit messages using gitfluff --write
-  entry: gitfluff lint --from-file --write
+  entry: gitfluff lint --write
   language: system
   stages: [commit-msg]
   pass_filenames: true

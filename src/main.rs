@@ -300,13 +300,17 @@ fn apply_write(message: &MessageData, cleaned: &str) -> Result<()> {
 }
 
 fn load_message(args: &LintArgs) -> Result<MessageData> {
-    if args.from_file.is_none() && !args.stdin && args.message.is_none() {
+    if args.from_file.is_none() && args.commit_file.is_none() && !args.stdin && args.message.is_none() {
         return Err(anyhow!(
-            "no commit message source provided (use --from-file, --stdin, or --message)"
+            "no commit message source provided (pass COMMIT_FILE, --from-file, --stdin, or --message)"
         ));
     }
 
     let (text, source) = if let Some(path) = &args.from_file {
+        let content = fs::read_to_string(path)
+            .with_context(|| format!("failed to read commit message from {}", path.display()))?;
+        (content, MessageSource::File(path.clone()))
+    } else if let Some(path) = &args.commit_file {
         let content = fs::read_to_string(path)
             .with_context(|| format!("failed to read commit message from {}", path.display()))?;
         (content, MessageSource::File(path.clone()))
@@ -320,7 +324,7 @@ fn load_message(args: &LintArgs) -> Result<MessageData> {
         (message.clone(), MessageSource::Literal)
     } else {
         return Err(anyhow!(
-            "no commit message source provided (use --from-file, --stdin, or --message)"
+            "no commit message source provided (pass COMMIT_FILE, --from-file, --stdin, or --message)"
         ));
     };
 

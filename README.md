@@ -31,7 +31,7 @@ npm install -g gitfluff
 
 **npx (no install)**
 ```bash
-npx gitfluff@0.2.1 --version
+npx gitfluff@0.3.0 --version
 ```
 
 **pip (Python)**
@@ -46,16 +46,16 @@ uvx gitfluff --version
 
 ## Basic Usage
 
-Lint the message Git is editing:
+Lint the message Git is editing (pass the path positionally or with `--from-file`):
 
 ```bash
-gitfluff lint --from-file .git/COMMIT_EDITMSG
+gitfluff lint .git/COMMIT_EDITMSG
 ```
 
 Automatically clean up matching patterns (e.g. stripped AI banners) and write the result back:
 
 ```bash
-gitfluff lint --from-file .git/COMMIT_EDITMSG --write
+gitfluff lint .git/COMMIT_EDITMSG --write
 ```
 
 Lint strings from other tools or scripts:
@@ -88,7 +88,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.2.1
+    rev: v0.3.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
@@ -108,7 +108,7 @@ npx husky init
 
 Create the commit-msg hook:
 ```bash
-echo 'npx gitfluff lint --from-file "$1"' > .husky/commit-msg
+echo 'npx gitfluff lint "$1"' > .husky/commit-msg
 ```
 
 Make it executable:
@@ -123,7 +123,7 @@ Add to `lefthook.yml`:
 commit-msg:
   commands:
     gitfluff:
-      run: npx gitfluff lint --from-file {1}
+      run: npx gitfluff lint {1}
 ```
 
 Install the hooks:
@@ -138,7 +138,7 @@ Add to `lefthook.yml`:
 commit-msg:
   commands:
     gitfluff:
-      run: uvx gitfluff lint --from-file {1}
+      run: uvx gitfluff lint {1}
 ```
 
 Install the hooks:
@@ -178,7 +178,7 @@ Any value defined on the command line overrides the config for that run.
 
 Enforce single-line commits, strip trailing whitespace, block "temp" headers, and rewrite in place:
 ```bash
-gitfluff lint --from-file .git/COMMIT_EDITMSG --exclude "(?i)temp" --cleanup "\\s+$->" --single-line --write
+gitfluff lint .git/COMMIT_EDITMSG --exclude "(?i)temp" --cleanup "\\s+$->" --single-line --write
 ```
 
 ## Conventional Commits compliance

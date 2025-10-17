@@ -20,14 +20,18 @@ pub enum Commands {
 
 #[derive(Debug, Args)]
 pub struct LintArgs {
-    #[arg(long, conflicts_with_all = ["stdin", "message"])]
+    #[arg(long, conflicts_with_all = ["stdin", "message", "commit_file"])]
     pub from_file: Option<PathBuf>,
 
-    #[arg(long, conflicts_with_all = ["from_file", "message"])]
+    #[arg(long, conflicts_with_all = ["from_file", "message", "commit_file"])]
     pub stdin: bool,
 
-    #[arg(long, conflicts_with_all = ["from_file", "stdin"])]
+    #[arg(long, conflicts_with_all = ["from_file", "stdin", "commit_file"])]
     pub message: Option<String>,
+
+    /// Path to the commit message file (positional for commit-msg hooks).
+    #[arg(conflicts_with_all = ["from_file", "stdin", "message"], value_name = "COMMIT_FILE")]
+    pub commit_file: Option<PathBuf>,
 
     #[arg(long)]
     pub preset: Option<String>,

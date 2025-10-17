@@ -27,6 +27,22 @@ fn lint_passes_for_conventional_commit() {
 }
 
 #[test]
+fn lint_accepts_positional_commit_file() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("message.txt");
+    write_message(&msg_path, "feat: add login\n");
+
+    Command::cargo_bin("gitfluff")
+        .unwrap()
+        .arg("lint")
+        .arg(&msg_path)
+        .assert()
+        .success()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
 fn lint_fails_for_ai_attribution_without_write() {
     let dir = tempdir().unwrap();
     let msg_path = dir.path().join("msg.txt");
@@ -169,7 +185,7 @@ fn hook_install_creates_commit_msg_script() {
         .stdout(predicate::str::contains("Installed commit-msg hook"));
 
     let script = fs::read_to_string(hooks_dir.join("commit-msg")).unwrap();
-    assert!(script.contains("gitfluff lint --from-file \"$1\""));
+    assert!(script.contains("gitfluff lint \"$1\""));
 }
 
 #[test]

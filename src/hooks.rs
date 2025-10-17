@@ -92,9 +92,9 @@ fn hook_script(kind: HookKind, write: bool) -> Result<String> {
     let base = match kind {
         HookKind::CommitMsg => {
             if write {
-                "exec gitfluff lint --from-file \"$1\" --write\n"
+                "exec gitfluff lint \"$1\" --write\n"
             } else {
-                "exec gitfluff lint --from-file \"$1\"\n"
+                "exec gitfluff lint \"$1\"\n"
             }
         }
     };
