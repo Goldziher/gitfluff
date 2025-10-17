@@ -18,7 +18,7 @@ gitfluff lint --from-file .git/COMMIT_EDITMSG --write
 
 ## Integrate with commit-msg hooks
 
-Using [pre-commit](https://pre-commit.com):
+Using [pre-commit](https://pre-commit.com). After adding the configuration, run `pre-commit install --hook-type commit-msg`:
 
 ```yaml
 repos:

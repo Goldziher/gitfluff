@@ -19,7 +19,7 @@ python -m gitfluff lint --from-file .git/COMMIT_EDITMSG --write
 
 Add `python -m gitfluff lint --from-file {commit_msg_file}` to your preferred hook manager.
 
-`pre-commit` example:
+`pre-commit` example (run `pre-commit install --hook-type commit-msg` after adding it):
 
 ```yaml
 repos:

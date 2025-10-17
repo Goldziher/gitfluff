@@ -62,7 +62,7 @@ With `--write`, the hook rewrites the message after fixes:
 gitfluff hook install commit-msg --write
 ```
 
-Use the published hook with [pre-commit](https://pre-commit.com):
+Use the published hook with [pre-commit](https://pre-commit.com). After adding the configuration, run `pre-commit install --hook-type commit-msg`:
 
 ```yaml
 repos:
