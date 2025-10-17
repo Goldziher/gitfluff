@@ -82,6 +82,10 @@ gitfluff hook install commit-msg --write
 
 Add to `.pre-commit-config.yaml`:
 ```yaml
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
 repos:
   - repo: https://github.com/Goldziher/gitfluff
     rev: v0.2.1
@@ -90,9 +94,9 @@ repos:
         stages: [commit-msg]
 ```
 
-Then install the hook:
+Then install the hooks:
 ```bash
-pre-commit install --hook-type commit-msg
+pre-commit install
 ```
 
 **Husky (npm/npx)**
