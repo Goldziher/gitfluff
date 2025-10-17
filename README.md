@@ -21,7 +21,7 @@ cargo install gitfluff
 
 # npm / npx
 npm install -g gitfluff
-npx gitfluff@latest --version
+npx gitfluff@0.2.0 --version
 
 # PyPI / uvx
 pip install gitfluff
@@ -67,7 +67,7 @@ Use the published hook with [pre-commit](https://pre-commit.com):
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.1.1
+    rev: v0.2.0
     hooks:
       - id: gitfluff-lint
         name: gitfluff (lint)

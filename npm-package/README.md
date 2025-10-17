@@ -7,7 +7,7 @@ This package distributes the `gitfluff` binary for Node.js environments. During 
 ```bash
 npm install -g gitfluff
 # or run transiently
-npx gitfluff@latest --version
+npx gitfluff@0.2.0 --version
 
 # lint the commit that Git is editing
 gitfluff lint --from-file .git/COMMIT_EDITMSG
@@ -23,7 +23,7 @@ Using [pre-commit](https://pre-commit.com):
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.1.1
+    rev: v0.2.0
     hooks:
       - id: gitfluff-lint
         entry: gitfluff lint --from-file

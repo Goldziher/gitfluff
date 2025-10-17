@@ -24,7 +24,7 @@ Add `python -m gitfluff lint --from-file {commit_msg_file}` to your preferred ho
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.1.1
+    rev: v0.2.0
     hooks:
       - id: gitfluff-lint
         entry: python -m gitfluff lint --from-file
