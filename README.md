@@ -1,8 +1,13 @@
 # gitfluff: Commit Message Linter
 
-`gitfluff` keeps your commit history consistent by enforcing structured messages, optional policy rules, and reversible cleanups. Installs ship prebuilt binaries for macOS, Linux, and Windows.
+`gitfluff` keeps your commit history consistent by enforcing structured messages, optional policy rules, and reversible cleanups. Installs ship prebuilt binaries for macOS, Linux, and Windows. The linter is fully compliant with the [Conventional Commits 1.0.0 specification](https://www.conventionalcommits.org/en/v1.0.0/), including all header, body, footer, and `BREAKING CHANGE` requirements.
 
-It is fully compliant with the [Conventional Commits 1.0.0 specification](https://www.conventionalcommits.org/en/v1.0.0/), including the required spacing rules, footer parsing, and `BREAKING CHANGE` handling.
+### Highlights
+
+- **Ready out of the box**: Conventional Commits enforcement plus automatic removal of common AI signatures (🤖 banners, AI co-author trailers).
+- **Developer friendly**: works with `npx`, `uvx`, Homebrew, Cargo, or a simple binary drop.
+- **Hook aware**: drop-in commit-msg integrations for pre-commit, Husky, Lefthook, or raw Git hooks.
+- **Optional extensions**: configure once through `.gitfluff.toml` or override ad-hoc via CLI flags.
 
 ## Install
 
@@ -118,6 +123,18 @@ gitfluff lint \
   --single-line \
   --write
 ```
+
+## Conventional Commits compliance
+
+The default preset enforces every MUST and MUST NOT in [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/):
+
+- type + optional scope + optional `!` + `: description` header format
+- blank-line separation between summary, body, and footers
+- support for multi-paragraph bodies and free-form text
+- footer token requirements (including `BREAKING CHANGE`/`BREAKING-CHANGE`)
+- case-insensitive parsing of tokens (except `BREAKING CHANGE`, which must be uppercase)
+
+Violations produce actionable messages so you can decide when to teach the linter about project-specific exceptions.
 
 This enforces single-line commits, strips trailing whitespace, blocks “temp” headers, and rewrites the message in place.
 
