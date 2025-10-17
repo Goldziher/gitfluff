@@ -49,6 +49,7 @@ repos:
     rev: v0.2.1
     hooks:
       - id: gitfluff-lint
+        stages: [commit-msg]
 ```
 
 **Install the hook:**
