@@ -11,20 +11,36 @@
 
 ## Install
 
+**Homebrew**
 ```bash
-# Homebrew
 brew tap goldziher/tap
+```
+```bash
 brew install gitfluff
+```
 
-# Cargo (Rust)
+**Cargo (Rust)**
+```bash
 cargo install gitfluff
+```
 
-# npm / npx
+**npm (global)**
+```bash
 npm install -g gitfluff
-npx gitfluff@0.2.0 --version
+```
 
-# PyPI / uvx
+**npx (no install)**
+```bash
+npx gitfluff@0.2.1 --version
+```
+
+**pip (Python)**
+```bash
 pip install gitfluff
+```
+
+**uvx (no install)**
+```bash
 uvx gitfluff --version
 ```
 
@@ -48,42 +64,82 @@ Lint strings from other tools or scripts:
 echo "feat: add session caching" | gitfluff lint --stdin
 ```
 
-### Git Hooks and pre-commit
+### Git Hooks
 
-Install a local commit-msg hook:
-
+**Install a native Git commit-msg hook**
 ```bash
 gitfluff hook install commit-msg
 ```
 
-With `--write`, the hook rewrites the message after fixes:
-
+**With auto-cleanup enabled**
 ```bash
 gitfluff hook install commit-msg --write
 ```
 
-Use the published hook with [pre-commit](https://pre-commit.com). After adding the configuration, run `pre-commit install --hook-type commit-msg`:
+### Hook Manager Integrations
 
+**pre-commit framework**
+
+Add to `.pre-commit-config.yaml`:
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.2.0
+    rev: v0.2.1
     hooks:
       - id: gitfluff-lint
-        name: gitfluff (lint)
-        entry: gitfluff lint --from-file
-        language: system
-        stages: [commit-msg]
-        args: ["{commit_msg_file}"]
-      - id: gitfluff-write
-        name: gitfluff (lint + write)
-        entry: gitfluff lint --from-file
-        language: system
-        stages: [commit-msg]
-        args: ["{commit_msg_file}", "--write"]
 ```
 
-For Lefthook and Husky you can reuse the command `gitfluff lint --from-file {commit_msg_file}` or add `--write` when you want automatic cleanup.
+Then install the hook:
+```bash
+pre-commit install --hook-type commit-msg
+```
+
+**Husky (npm/npx)**
+
+Initialize Husky:
+```bash
+npx husky init
+```
+
+Create the commit-msg hook:
+```bash
+echo 'npx gitfluff lint --from-file "$1"' > .husky/commit-msg
+```
+
+Make it executable:
+```bash
+chmod +x .husky/commit-msg
+```
+
+**Lefthook (npx)**
+
+Add to `lefthook.yml`:
+```yaml
+commit-msg:
+  commands:
+    gitfluff:
+      run: npx gitfluff lint --from-file {1}
+```
+
+Install the hooks:
+```bash
+npx lefthook install
+```
+
+**Lefthook (uvx)**
+
+Add to `lefthook.yml`:
+```yaml
+commit-msg:
+  commands:
+    gitfluff:
+      run: uvx gitfluff lint --from-file {1}
+```
+
+Install the hooks:
+```bash
+npx lefthook install
+```
 
 ## Optional Configuration
 
@@ -113,15 +169,11 @@ Any value defined on the command line overrides the config for that run.
 - **Temporary overrides** – Use `--preset`, `--message-pattern`, or `--message-description` to tighten rules in CI pipelines or release workflows without touching project config.
 - **Dry-run vs write mode** – Without `--write`, gitfluff only reports issues and suggested cleanups. Add `--write` to apply cleanups to files or emit the cleaned message to stdout when reading from stdin.
 
-### Example: combine overrides and write mode
+### Example: Combine overrides and write mode
 
+Enforce single-line commits, strip trailing whitespace, block "temp" headers, and rewrite in place:
 ```bash
-gitfluff lint \
-  --from-file .git/COMMIT_EDITMSG \
-  --exclude "(?i)temp" \
-  --cleanup "\\s+$->" \
-  --single-line \
-  --write
+gitfluff lint --from-file .git/COMMIT_EDITMSG --exclude "(?i)temp" --cleanup "\\s+$->" --single-line --write
 ```
 
 ## Conventional Commits compliance
@@ -135,8 +187,6 @@ The default preset enforces every MUST and MUST NOT in [Conventional Commits 1.0
 - case-insensitive parsing of tokens (except `BREAKING CHANGE`, which must be uppercase)
 
 Violations produce actionable messages so you can decide when to teach the linter about project-specific exceptions.
-
-This enforces single-line commits, strips trailing whitespace, blocks “temp” headers, and rewrites the message in place.
 
 ## Project Status
 

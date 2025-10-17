@@ -1,36 +1,74 @@
-# gitfluff Python package
+# gitfluff
 
-This package exposes the `gitfluff` commit message linter to Python environments. On first use it downloads the correct release binary for your platform and caches it under `~/.cache/gitfluff`. The CLI is fully compliant with the Conventional Commits 1.0.0 specification.
+Commit message linter with presets, custom formats, and cleanup automation. Fully compliant with [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
+
+This Python package distributes prebuilt `gitfluff` binaries. On first use, the correct release binary for your platform is downloaded and cached under `~/.cache/gitfluff`.
 
 ## Quick Start
 
+**Install with pip:**
 ```bash
 pip install gitfluff
-python -m gitfluff --version
-
-# lint the commit Git is editing
-python -m gitfluff lint --from-file .git/COMMIT_EDITMSG
-
-# auto-clean and rewrite the message
-python -m gitfluff lint --from-file .git/COMMIT_EDITMSG --write
 ```
 
-### Integrate with commit-msg hooks
+**Run without installation (uvx):**
+```bash
+uvx gitfluff --version
+```
 
-Add `python -m gitfluff lint --from-file {commit_msg_file}` to your preferred hook manager.
+**Lint a commit message:**
+```bash
+gitfluff lint --from-file .git/COMMIT_EDITMSG
+```
 
-`pre-commit` example (run `pre-commit install --hook-type commit-msg` after adding it):
+**Auto-clean and rewrite:**
+```bash
+gitfluff lint --from-file .git/COMMIT_EDITMSG --write
+```
 
+## Hook Integrations
+
+### Native Git Hook
+
+**Install commit-msg hook:**
+```bash
+gitfluff hook install commit-msg
+```
+
+**With auto-cleanup:**
+```bash
+gitfluff hook install commit-msg --write
+```
+
+### pre-commit Framework
+
+**Add to `.pre-commit-config.yaml`:**
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.2.0
+    rev: v0.2.1
     hooks:
       - id: gitfluff-lint
-        entry: python -m gitfluff lint --from-file
-        language: system
-        stages: [commit-msg]
-        args: ["{commit_msg_file}"]
+```
+
+**Install the hook:**
+```bash
+pre-commit install --hook-type commit-msg
+```
+
+### Lefthook (uvx)
+
+**Add to `lefthook.yml`:**
+```yaml
+commit-msg:
+  commands:
+    gitfluff:
+      run: uvx gitfluff lint --from-file {1}
+```
+
+**Install hooks:**
+```bash
+npx lefthook install
 ```
 
 ## Optional configuration

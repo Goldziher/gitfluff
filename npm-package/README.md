@@ -1,48 +1,91 @@
-# gitfluff npm package
+# gitfluff
 
-This package distributes the `gitfluff` binary for Node.js environments. During installation the correct release artifact is downloaded, so `npx gitfluff` and global installs work without additional setup. The CLI is fully compliant with the Conventional Commits 1.0.0 specification.
+Commit message linter with presets, custom formats, and cleanup automation. Fully compliant with [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
+
+This npm package distributes prebuilt `gitfluff` binaries for Node.js environments. The correct release artifact is automatically downloaded during installation.
 
 ## Quick Start
 
+**Install globally:**
 ```bash
 npm install -g gitfluff
-# or run transiently
-npx gitfluff@0.2.0 --version
+```
 
-# lint the commit that Git is editing
+**Run without installation:**
+```bash
+npx gitfluff@0.2.1 --version
+```
+
+**Lint a commit message:**
+```bash
 gitfluff lint --from-file .git/COMMIT_EDITMSG
+```
 
-# auto-clean and rewrite the message
+**Auto-clean and rewrite:**
+```bash
 gitfluff lint --from-file .git/COMMIT_EDITMSG --write
 ```
 
-## Integrate with commit-msg hooks
+## Hook Integrations
 
-Using [pre-commit](https://pre-commit.com). After adding the configuration, run `pre-commit install --hook-type commit-msg`:
+### Native Git Hook
 
+**Install commit-msg hook:**
+```bash
+gitfluff hook install commit-msg
+```
+
+**With auto-cleanup:**
+```bash
+gitfluff hook install commit-msg --write
+```
+
+### pre-commit Framework
+
+**Add to `.pre-commit-config.yaml`:**
 ```yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.2.0
+    rev: v0.2.1
     hooks:
       - id: gitfluff-lint
-        entry: gitfluff lint --from-file
-        language: system
-        stages: [commit-msg]
-        args: ["{commit_msg_file}"]
 ```
 
-Lefthook / Husky examples:
-
+**Install the hook:**
 ```bash
-# lefthook.yml
+pre-commit install --hook-type commit-msg
+```
+
+### Husky
+
+**Initialize Husky:**
+```bash
+npx husky init
+```
+
+**Create commit-msg hook:**
+```bash
+echo 'npx gitfluff lint --from-file "$1"' > .husky/commit-msg
+```
+
+**Make it executable:**
+```bash
+chmod +x .husky/commit-msg
+```
+
+### Lefthook
+
+**Add to `lefthook.yml`:**
+```yaml
 commit-msg:
   commands:
-    lint:
-      run: gitfluff lint --from-file {commit_msg_file}
+    gitfluff:
+      run: npx gitfluff lint --from-file {1}
+```
 
-# Husky
-npx husky add .husky/commit-msg 'gitfluff lint --from-file "$1"'
+**Install hooks:**
+```bash
+npx lefthook install
 ```
 
 ## Optional configuration
