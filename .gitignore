@@ -1,1 +1,7 @@
 /target
+
+# AI Rules generated files
+.claude/agents/
+.mcp.json
+CLAUDE.md
+.gemini/

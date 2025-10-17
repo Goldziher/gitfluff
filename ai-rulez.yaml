@@ -1,0 +1,182 @@
+$schema: https://github.com/Goldziher/ai-rulez/schema/ai-rules-v2.schema.json
+agents: []
+commands: []
+mcp_servers:
+    - args:
+        - -y
+        - ai-rulez@latest
+        - mcp
+      command: npx
+      description: AI-Rulez MCP server for configuration management
+      name: ai-rulez
+metadata:
+    description: Rust-based CLI tool for enforcing Conventional Commits 1.0.0 specification with automatic message cleanup and multi-platform distribution. Features built-in presets for removing AI signatures, configurable linting rules via .gitfluff.toml, and seamless Git hook integration (pre-commit, Husky, Lefthook). Distributed as prebuilt binaries through Homebrew, Cargo, npm/npx, and PyPI/uvx with cross-platform support for macOS, Linux, and Windows.
+    name: gitfluff
+    version: 1.0.0
+presets:
+    - claude
+rules:
+    - content: 'All commits must follow Conventional Commits 1.0.0 spec. Use allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore. Include scope when applicable. Mark breaking changes with ''!'' or ''BREAKING CHANGE:'' footer. Test with `gitfluff lint` before committing.'
+      name: Conventional Commits Compliance
+      priority: critical
+    - content: Use anyhow::Result for CLI operations and anyhow::Context for error chain building. Provide actionable error messages that guide users. In src/lint.rs and src/hooks.rs, always add context to IO errors (e.g., '.context("Failed to read commit message file")?').
+      name: Error Handling with anyhow
+      priority: high
+    - content: All linting rules must be configurable via .gitfluff.toml and overridable by CLI flags. Use serde for serialization. Keep src/config.rs as single source of truth. Document all config options in README with examples.
+      name: Configuration Management
+      priority: high
+    - content: Maintain wrapper packages (npm-package/, pip-package/) that download correct prebuilt binary for platform. Update version strings in sync across Cargo.toml, package.json, and pyproject.toml. Test install scripts on macOS, Linux, and Windows before release.
+      name: Cross-Platform Binary Distribution
+      priority: high
+    - content: Write integration tests in tests/cli.rs using assert_cmd and predicates crates. Test all CLI subcommands (lint, hook install) with real commit message files. Verify --write flag modifies files correctly and is idempotent.
+      name: Integration Testing
+      priority: medium
+    - content: In src/hooks.rs, always backup existing hooks before overwriting. Verify Git repository exists before installing hooks. Use atomic file operations. Support both traditional .git/hooks and pre-commit framework workflows.
+      name: Hook Installation Safety
+      priority: medium
+    - content: Keep regex patterns in src/presets.rs focused on reversible cleanups (AI signatures, trailers). Document regex patterns with examples. Test patterns don't accidentally strip legitimate commit content. Update AI signature patterns as new tools emerge.
+      name: Preset Pattern Maintenance
+      priority: low
+sections:
+    - content: |-
+        ## Development Setup
+
+        ### Prerequisites
+        - Rust 1.70+ (install via [rustup](https://rustup.rs/))
+        - Cargo (included with Rust)
+
+        ### Building from Source
+
+        ```bash
+        # Clone the repository
+        git clone https://github.com/Goldziher/gitfluff.git
+        cd gitfluff
+
+        # Build debug version
+        cargo build
+
+        # Build optimized release
+        cargo build --release
+
+        # Run locally
+        cargo run -- lint --help
+        ```
+
+        ### Running Tests
+
+        ```bash
+        # Run all tests
+        cargo test
+
+        # Run with output
+        cargo test -- --nocapture
+
+        # Run specific test file
+        cargo test --test cli
+        ```
+
+        ### Code Quality
+
+        ```bash
+        # Run clippy linter
+        cargo clippy -- -D warnings
+
+        # Format code
+        cargo fmt
+
+        # Check formatting without modifying
+        cargo fmt -- --check
+        ```
+      name: Development Setup
+      priority: high
+    - content: |-
+        ## Project Architecture
+
+        ### Core Rust Application (`src/`)
+
+        - **`main.rs`** - Entry point, CLI argument parsing
+        - **`cli.rs`** - Command definitions and handlers (lint, hook commands)
+        - **`config.rs`** - Configuration file parsing (`.gitfluff.toml`/`.fluff.toml`)
+        - **`lint.rs`** - Core linting logic and Conventional Commits validation
+        - **`presets.rs`** - Built-in presets (`conventional`, `conventional-body`, `simple`)
+        - **`hooks.rs`** - Git hook installation and management
+
+        ### Distribution Packages
+
+        The project provides multiple distribution channels, each wrapping the core Rust binary:
+
+        **npm (`npm-package/`)**
+        - `install.js` - Downloads platform-specific binary on install
+        - `bin/gitfluff.js` - Wrapper script that executes the binary
+        - Published as `gitfluff` on npm
+
+        **PyPI (`pip-package/`)**
+        - `downloader.py` - Fetches binary for the current platform
+        - `cli.py` / `__main__.py` - Python wrapper for binary execution
+        - Published as `gitfluff` on PyPI
+
+        **Homebrew (`homebrew-tap/Formula/`)**
+        - `gitfluff.rb` - Formula for installation via `brew tap goldziher/tap`
+        - Auto-updated via `.github/workflows/release-homebrew.yml`
+
+        ### CI/CD (`.github/workflows/`)
+
+        - **`ci.yml`** - Runs tests and clippy on every push
+        - **`release.yml`** - Builds cross-platform binaries on tag
+        - **`publish.yml`** - Publishes to crates.io, npm, PyPI
+        - **`release-homebrew.yml`** - Updates Homebrew formula
+      name: Project Architecture
+      priority: medium
+    - content: |-
+        ## Adding Custom Presets
+
+        Presets are defined in `src/presets.rs` and provide reusable configuration profiles.
+
+        ### Creating a New Preset
+
+        1. **Define preset in `src/presets.rs`:**
+
+        ```rust
+        const MY_PRESET: &str = r#"
+        preset = "my-preset"
+
+        [rules]
+        message_pattern = "^(feat|fix|docs): .+"
+        message_description = "Must start with feat, fix, or docs"
+        require_body = true
+
+        [[rules.cleanup]]
+        find = "(?i)wip"
+        replace = "WIP"
+        description = "Normalize WIP markers"
+        "#;
+        ```
+
+        2. **Register in `get_preset()` function:**
+
+        ```rust
+        pub fn get_preset(name: &str) -> Option<&'static str> {
+            match name {
+                "conventional" => Some(CONVENTIONAL),
+                "conventional-body" => Some(CONVENTIONAL_BODY),
+                "simple" => Some(SIMPLE),
+                "my-preset" => Some(MY_PRESET), // Add here
+                _ => None,
+            }
+        }
+        ```
+
+        3. **Test the preset:**
+
+        ```bash
+        cargo build
+        ./target/debug/gitfluff lint --preset my-preset --stdin <<< "feat: test message"
+        ```
+
+        ### Built-in Presets
+
+        - **`conventional`** (default) - Full Conventional Commits spec, allows single-line commits
+        - **`conventional-body`** - Requires body section for all commits
+        - **`simple`** - Single-line commits only, no body/footer parsing
+      name: Adding Custom Presets
+      priority: low

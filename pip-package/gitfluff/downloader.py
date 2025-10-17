@@ -88,11 +88,14 @@ def _extract(archive: Path, ext: str, destination: Path) -> None:
     raise RuntimeError("Binary not found in downloaded archive")
 
 
-def _cache_path() -> Path:
-    cache = Path.home() / ".cache" / "gitfluff"
-    cache.mkdir(parents=True, exist_ok=True)
+def _cache_path(version: str) -> Path:
+    """
+    Return a versioned cache path so upgrades download matching binaries.
+    """
+    cache_dir = Path.home() / ".cache" / "gitfluff" / version
+    cache_dir.mkdir(parents=True, exist_ok=True)
     suffix = ".exe" if platform.system().lower() == "windows" else ""
-    return cache / f"gitfluff{suffix}"
+    return cache_dir / f"gitfluff{suffix}"
 
 
 def ensure_binary() -> str:
@@ -103,7 +106,7 @@ def ensure_binary() -> str:
     if override:
         return override
 
-    binary_path = _cache_path()
+    binary_path = _cache_path(__version__)
     if binary_path.exists() and os.access(binary_path, os.X_OK):
         return str(binary_path)
 
