@@ -37,7 +37,8 @@ fn lint_fails_for_ai_attribution_without_write() {
 
     Command::cargo_bin("gitfluff")
         .unwrap()
-        .args(["lint", "--preset", "no-ai", "--from-file"])
+        .arg("lint")
+        .arg("--from-file")
         .arg(&msg_path)
         .assert()
         .failure()
@@ -48,81 +49,27 @@ fn lint_fails_for_ai_attribution_without_write() {
         .stderr(predicate::str::contains("Remove AI generation notices"));
 }
 
-struct PresetCase {
-    name: &'static str,
-    valid: &'static str,
-    invalid: &'static str,
-    error_snippet: &'static str,
-}
-
 #[test]
-fn standard_presets_enforce_patterns() {
-    let cases = [
-        PresetCase {
-            name: "atom",
-            valid: "style: tidy whitespace",
-            invalid: "invalid header",
-            error_snippet: "Atom commit convention format",
-        },
-        PresetCase {
-            name: "ember",
-            valid: "breaking: remove deprecated option",
-            invalid: "feat add scope missing colon",
-            error_snippet: "Ember commit convention format",
-        },
-        PresetCase {
-            name: "eslint",
-            valid: "update: align lint rules",
-            invalid: "ci: tweak pipeline",
-            error_snippet: "ESLint commit convention format",
-        },
-        PresetCase {
-            name: "express",
-            valid: "refactor: simplify middleware",
-            invalid: "fix something",
-            error_snippet: "Express.js commit convention format",
-        },
-        PresetCase {
-            name: "gitmoji",
-            valid: ":sparkles: add login shortcut",
-            invalid: "feat: missing emoji",
-            error_snippet: "gitmoji",
-        },
-        PresetCase {
-            name: "jshint",
-            valid: "test: cover parser edge cases",
-            invalid: "docs update readme",
-            error_snippet: "JSHint commit convention format",
-        },
-        PresetCase {
-            name: "simple",
-            valid: "Fix login button alignment",
-            invalid: "fix login button alignment",
-            error_snippet: "Single-line summary starting with a capital letter",
-        },
-    ];
+fn simple_preset_enforces_single_line() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
 
-    for case in cases {
-        let dir = tempdir().unwrap();
-        let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "Fix login button alignment\n");
+    Command::cargo_bin("gitfluff")
+        .unwrap()
+        .args(["lint", "--preset", "simple", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
 
-        write_message(&msg_path, format!("{}\n", case.invalid));
-        Command::cargo_bin("gitfluff")
-            .unwrap()
-            .args(["lint", "--preset", case.name, "--from-file"])
-            .arg(&msg_path)
-            .assert()
-            .failure()
-            .stderr(predicate::str::contains(case.error_snippet));
-
-        write_message(&msg_path, format!("{}\n", case.valid));
-        Command::cargo_bin("gitfluff")
-            .unwrap()
-            .args(["lint", "--preset", case.name, "--from-file"])
-            .arg(&msg_path)
-            .assert()
-            .success();
-    }
+    write_message(&msg_path, "fix: add body\n\nextra details\n");
+    Command::cargo_bin("gitfluff")
+        .unwrap()
+        .args(["lint", "--preset", "simple", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("single line"));
 }
 
 #[test]
@@ -159,7 +106,8 @@ fn lint_applies_cleanup_with_write_flag() {
 
     Command::cargo_bin("gitfluff")
         .unwrap()
-        .args(["lint", "--preset", "no-ai", "--from-file"])
+        .arg("lint")
+        .arg("--from-file")
         .arg(&msg_path)
         .arg("--write")
         .assert()
@@ -229,8 +177,6 @@ fn hook_behaves_like_precommit_example() {
     let dir = tempdir().unwrap();
     let git_dir = dir.path().join(".git");
     fs::create_dir_all(git_dir.join("hooks")).unwrap();
-
-    fs::write(dir.path().join(".gitfluff.toml"), "preset = \"no-ai\"\n").unwrap();
 
     Command::cargo_bin("gitfluff")
         .unwrap()

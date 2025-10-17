@@ -1,6 +1,6 @@
 # gitfluff Python package
 
-This package exposes the `gitfluff` commit message linter to Python environments. On first use it downloads the correct release binary for your platform and caches it under `~/.cache/gitfluff`.
+This package exposes the `gitfluff` commit message linter to Python environments. On first use it downloads the correct release binary for your platform and caches it under `~/.cache/gitfluff`. The CLI is fully compliant with the Conventional Commits 1.0.0 specification.
 
 ## Quick Start
 

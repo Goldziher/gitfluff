@@ -1,6 +1,6 @@
 # gitfluff npm package
 
-This package distributes the `gitfluff` binary for Node.js environments. During installation the correct release artifact is downloaded, so `npx gitfluff` and global installs work without additional setup.
+This package distributes the `gitfluff` binary for Node.js environments. During installation the correct release artifact is downloaded, so `npx gitfluff` and global installs work without additional setup. The CLI is fully compliant with the Conventional Commits 1.0.0 specification.
 
 ## Quick Start
 
@@ -50,14 +50,14 @@ npx husky add .husky/commit-msg 'gitfluff lint --from-file "$1"'
 `gitfluff` works without any configuration. When you do want custom rules, add a `.gitfluff.toml` file in your repository:
 
 ```toml
-preset = "no-ai"          # optional preset override
+preset = "conventional-body"
 
 [rules]
-require_body = true
+write = true
 
 [[rules.cleanup]]
-find = "\\s+$"
-replace = ""
+find = "(?i)wip"
+replace = "WIP"
 ```
 
 All keys are optional—omit the file to stick with the default Conventional Commits preset.

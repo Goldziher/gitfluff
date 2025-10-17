@@ -20,6 +20,41 @@ use crate::lint::{
 };
 use crate::presets::resolve_preset;
 
+const AI_EXCLUDE_RULES: &[(&str, &str)] = &[
+    (
+        "(?mi)^Co-Authored-By:.*(?:Claude|Anthropic|ChatGPT|GPT|OpenAI).*$",
+        "Remove AI co-author attribution lines",
+    ),
+    (
+        "🤖 Generated with",
+        "Remove AI generation notices from commit messages",
+    ),
+];
+
+const AI_CLEANUP_RULES: &[(&str, &str, &str)] = &[
+    (
+        "(?m)^.*🤖 Generated with.*\n?",
+        "",
+        "Remove AI generation banner",
+    ),
+    (
+        "(?mi)^Co-Authored-By:.*\n?",
+        "",
+        "Drop Co-Authored-By lines referencing AI assistants",
+    ),
+    (
+        "(?s)\\A\\s*\n+",
+        "",
+        "Trim leading blank lines introduced by cleanup",
+    ),
+    (
+        "(?s)\n\\s*\n\\z",
+        "\n",
+        "Trim trailing blank lines introduced by cleanup",
+    ),
+    ("\n{3,}", "\n\n", "Collapse excessive blank lines"),
+];
+
 fn main() {
     let exit_code = match run() {
         Ok(code) => code,
@@ -70,6 +105,7 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     let preset =
         resolve_preset(&preset_name).ok_or_else(|| anyhow!("unknown preset `{}`", preset_name))?;
 
+    let mut enforce_spec = preset.enforce_spec;
     let mut message_pattern = Some(build_message_pattern(
         preset.message_pattern,
         Some(preset.description.to_string()),
@@ -82,6 +118,7 @@ fn run_lint(args: LintArgs) -> Result<i32> {
             &rule.pattern,
             rule.description.clone(),
         )?);
+        enforce_spec = false;
     }
 
     if let Some(pattern) = &args.message_pattern {
@@ -90,6 +127,7 @@ fn run_lint(args: LintArgs) -> Result<i32> {
             .clone()
             .or_else(|| Some(format!("Commit message must match pattern `{pattern}`")));
         message_pattern = Some(build_message_pattern(pattern, desc)?);
+        enforce_spec = false;
     } else if args.message_description.is_some()
         && let Some(mp) = message_pattern.as_mut()
     {
@@ -99,23 +137,9 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     let mut options = LintOptions {
         message_pattern,
         body_policy: preset.body_policy,
+        enforce_conventional_spec: enforce_spec,
         ..Default::default()
     };
-
-    for preset_exclude in preset.excludes {
-        options.exclude_rules.push(build_exclude_rule(
-            preset_exclude.pattern,
-            Some(preset_exclude.message.to_string()),
-        )?);
-    }
-
-    for preset_cleanup in preset.cleanup {
-        options.cleanup_rules.push(build_cleanup_rule(
-            preset_cleanup.find,
-            preset_cleanup.replace,
-            Some(preset_cleanup.description.to_string()),
-        )?);
-    }
 
     let mut body_policy = preset.body_policy;
 
@@ -191,6 +215,20 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     };
 
     options.body_policy = body_policy;
+
+    for (pattern, message) in AI_EXCLUDE_RULES {
+        options
+            .exclude_rules
+            .push(build_exclude_rule(pattern, Some((*message).to_string()))?);
+    }
+
+    for (find, replace, desc) in AI_CLEANUP_RULES {
+        options.cleanup_rules.push(build_cleanup_rule(
+            find,
+            replace,
+            Some((*desc).to_string()),
+        )?);
+    }
 
     let outcome = lint_message(&message_data.text, &options);
 

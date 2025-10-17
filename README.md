@@ -2,11 +2,12 @@
 
 `gitfluff` keeps your commit history consistent by enforcing structured messages, optional policy rules, and reversible cleanups. Installs ship prebuilt binaries for macOS, Linux, and Windows.
 
+It is fully compliant with the [Conventional Commits 1.0.0 specification](https://www.conventionalcommits.org/en/v1.0.0/), including the required spacing rules, footer parsing, and `BREAKING CHANGE` handling.
+
 ## Install
 
 ```bash
 # Homebrew
-git clone https://github.com/Goldziher/gitfluff.git
 brew tap goldziher/tap
 brew install gitfluff
 
@@ -86,33 +87,22 @@ For Lefthook and Husky you can reuse the command `gitfluff lint --from-file {com
 ```toml
 # .gitfluff.toml (all keys optional)
 
-preset = "no-ai"           # conventional by default
-write = false              # default behaviour is lint-only
+preset = "conventional-body"
 
 [rules]
-require_body = true       # enforce header + blank line + body
-message = { pattern = "^(?<type>[a-z]+)(\((?<scope>[^)]+)\))?!?: (?<description>.+)$", description = "Use type[(scope)]: summary" }
-
-[[rules.excludes]]
-pattern = "(?i)wip"
-message = "WIP commits are not allowed"
+write = true
 
 [[rules.cleanup]]
-find = "\\s+$"
-replace = ""
-description = "Trim trailing whitespace"
-
-[[rules.cleanup]]
-find = "(?m)^Co-Authored-By:.*$"
-replace = ""
-description = "Remove stray co-author lines"
+find = "(?i)wip"
+replace = "WIP"
+description = "Normalize WIP markers"
 ```
 
 Any value defined on the command line overrides the config for that run.
 
 ## Advanced Usage
 
-- **Presets** – Built-in styles: `conventional` (default), `conventional-body`, `no-ai`, `gitmoji`, `angular`, `atom`, `ember`, `eslint`, `express`, `jshint`, `simple`.
+- **Presets** – Built-in styles: `conventional` (default), `conventional-body`, and `simple` (single-line summary).
 - **Body policies** – Toggle between single-line commits (`--single-line`), required bodies (`--require-body`), or the preset/config defaults.
 - **Custom rules** – Stack multiple `--exclude <regex[:message]>` and `--cleanup <find->replace>` options for ad-hoc policies without editing configuration files.
 - **Temporary overrides** – Use `--preset`, `--message-pattern`, or `--message-description` to tighten rules in CI pipelines or release workflows without touching project config.
