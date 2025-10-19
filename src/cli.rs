@@ -30,7 +30,11 @@ pub struct LintArgs {
     pub message: Option<String>,
 
     /// Path to the commit message file (positional for commit-msg hooks).
-    #[arg(conflicts_with_all = ["from_file", "stdin", "message"], value_name = "COMMIT_FILE")]
+    #[arg(
+        conflicts_with_all = ["from_file", "stdin", "message"],
+        value_name = "COMMIT_FILE",
+        index = 1
+    )]
     pub commit_file: Option<PathBuf>,
 
     #[arg(long)]
