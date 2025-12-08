@@ -4,6 +4,26 @@ All notable changes to this project are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres
 to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+## [0.4.0] - 2025-12-08
+
+### Added
+
+- New `--msg-pattern` / `--msg-pattern-description` CLI flags so Conventional
+  Commits validation can be swapped for a custom regex (ideal when wiring
+  `gitfluff` into pre-commit with bespoke message styles).
+- Added `--cleanup-pattern`, `--cleanup-replacement`, and
+  `--cleanup-description` to sanitize commit headers in-place, plus doc
+  examples for using them alongside the regex validator.
+- Updated the docs to highlight `uv tool install`/`uvx` flows for Python users.
+
+### Fixed
+
+- Expanded the built-in AI cleanup rules to strip every variant of the Claude
+  Code signature (emoji banner, Markdown link, plain text, and co-author lines
+  with multi-line emails).
+
 ## [0.3.4] - 2025-12-08
 
 ### Added

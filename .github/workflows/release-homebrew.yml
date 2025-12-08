@@ -137,7 +137,7 @@ jobs:
           fi
 
           # shellcheck disable=SC2016
-          release_notes=$'## What'\''s Changed\n\nSee the changelog for full details.\n\n## Installation\n\n### Homebrew\n```bash\nbrew tap goldziher/tap\nbrew install gitfluff\n```\n\n### Rust/Cargo\n```bash\ncargo install gitfluff\n```\n\n### npm\n```bash\nnpm install -g gitfluff\n```\n\n### pip\n```bash\npip install gitfluff\n```\n\n### Direct Download\nDownload the appropriate binary for your platform below.\n'
+          release_notes=$'## What'\''s Changed\n\nSee the changelog for full details.\n\n## Installation\n\n### Homebrew\n```bash\nbrew tap goldziher/tap\nbrew install gitfluff\n```\n\n### Rust/Cargo\n```bash\ncargo install gitfluff\n```\n\n### npm\n```bash\nnpm install -g gitfluff\n```\n\n### uv\n```bash\nuv tool install gitfluff\n```\n\n### Direct Download\nDownload the appropriate binary for your platform below.\n'
 
           gh release create "$tag" \
             $prerelease_flag \

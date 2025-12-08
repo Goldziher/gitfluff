@@ -48,7 +48,7 @@ fn lint_fails_for_ai_attribution_without_write() {
     let msg_path = dir.path().join("msg.txt");
     write_message(
         &msg_path,
-        "feat: add login\n\n🤖 Generated with Claude\nCo-Authored-By: Claude <noreply@anthropic.com>\n",
+        "feat: add login\n\n🤖 Generated with Claude\n- Claude\nCo-Authored-By: Claude Sonnet 4.5\n<noreply@anthropic.com>\n",
     );
 
     Command::cargo_bin("gitfluff")
@@ -117,7 +117,7 @@ fn lint_applies_cleanup_with_write_flag() {
     let msg_path = dir.path().join("msg.txt");
     write_message(
         &msg_path,
-        "feat: add login\n\n🤖 Generated with Claude\nCo-Authored-By: Claude <noreply@anthropic.com>\n",
+        "feat: add login\n\n🤖 Generated with Claude\n- Claude\nCo-Authored-By: Claude Sonnet 4.5\n<noreply@anthropic.com>\n",
     );
 
     Command::cargo_bin("gitfluff")
@@ -132,9 +132,11 @@ fn lint_applies_cleanup_with_write_flag() {
         .stderr(predicate::str::contains(
             "Remove AI co-author attribution lines",
         ))
+        .stderr(predicate::str::contains("Remove AI generation notices"))
         .stderr(predicate::str::contains("applied cleanup"))
-        .stderr(predicate::str::contains("Remove AI generation banner"))
-        .stderr(predicate::str::contains("Drop Co-Authored-By"));
+        .stderr(predicate::str::contains(
+            "Remove Claude Code attribution block",
+        ));
 
     let rewritten = fs::read_to_string(&msg_path).unwrap();
     assert_eq!(rewritten.trim_end(), "feat: add login");
@@ -166,6 +168,117 @@ require_body = true
         .assert()
         .failure()
         .stderr(predicate::str::contains("must include a body"));
+}
+
+#[test]
+fn lint_accepts_custom_pattern_flag() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "JIRA-123 Fix login flow\n");
+
+    Command::cargo_bin("gitfluff")
+        .unwrap()
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .assert()
+        .failure();
+
+    Command::cargo_bin("gitfluff")
+        .unwrap()
+        .args(["lint", "--msg-pattern", "^JIRA-[0-9]+\\s.+$", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+}
+
+#[test]
+fn lint_uses_custom_pattern_description() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "update docs\n");
+
+    Command::cargo_bin("gitfluff")
+        .unwrap()
+        .args([
+            "lint",
+            "--msg-pattern",
+            "^JIRA-[0-9]+: .+$",
+            "--msg-pattern-description",
+            "Ticket prefix required",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Ticket prefix required"));
+}
+
+#[test]
+fn ai_cleanup_removes_claude_signature_variants() {
+    let samples = [
+        "feat: keep login\n\n🤖 Generated with [Claude\nCode](https://claude.com/claude-code)\n\n  Co-Authored-By: Claude Sonnet 4.5\n  <noreply@anthropic.com>\n",
+        "feat: keep login\n\nGenerated with Claude Code\n\nCo-Authored-By: Claude Sonnet 4.5\n<noreply@anthropic.com>\n",
+    ];
+
+    for content in samples {
+        let dir = tempdir().unwrap();
+        let msg_path = dir.path().join("msg.txt");
+        write_message(&msg_path, content);
+
+        Command::cargo_bin("gitfluff")
+            .unwrap()
+            .arg("lint")
+            .arg("--write")
+            .arg("--from-file")
+            .arg(&msg_path)
+            .assert()
+            .success();
+
+        let cleaned = fs::read_to_string(&msg_path).unwrap();
+        assert_eq!(cleaned.trim_end(), "feat: keep login");
+    }
+}
+
+#[test]
+fn cleanup_pattern_sanitizes_message() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "TEMP: fix bug\n\nDetails here\n");
+
+    Command::cargo_bin("gitfluff")
+        .unwrap()
+        .args([
+            "lint",
+            "--cleanup-pattern",
+            "^TEMP: ",
+            "--cleanup-replacement",
+            "feat: ",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("cleanup available"));
+
+    Command::cargo_bin("gitfluff")
+        .unwrap()
+        .args([
+            "lint",
+            "--cleanup-pattern",
+            "^TEMP: ",
+            "--cleanup-replacement",
+            "feat: ",
+            "--write",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains("applied cleanup"));
+
+    let rewritten = fs::read_to_string(&msg_path).unwrap();
+    assert!(rewritten.starts_with("feat: fix bug"));
 }
 
 #[test]

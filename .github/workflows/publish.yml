@@ -132,4 +132,4 @@ jobs:
           echo "📦 Installation commands:"
           echo "  cargo install gitfluff --version $version"
           echo "  npm install -g gitfluff@$version"
-          echo "  pip install gitfluff==$python_version"
+          echo "  uv tool install gitfluff==$python_version"

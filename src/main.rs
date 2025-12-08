@@ -33,15 +33,26 @@ const AI_EXCLUDE_RULES: &[(&str, &str)] = &[
 
 const AI_CLEANUP_RULES: &[(&str, &str, &str)] = &[
     (
+        "(?ims)\\n?\\s*(?:🤖\\s*)?Generated with.*?(?:Co-Authored-By:.*(?:Claude|Anthropic).*(?:\\n\\s*<[^>\\n]+>)?)+\\s*",
+        "\n",
+        "Remove Claude Code attribution block",
+    ),
+    (
         "(?m)^.*🤖 Generated with.*\n?",
         "",
         "Remove AI generation banner",
     ),
     (
-        "(?mi)^Co-Authored-By:.*\n?",
+        "(?mi)^Generated with Claude.*\n?",
+        "",
+        "Remove plain Claude generation banner",
+    ),
+    (
+        "(?mi)^Co-Authored-By:.*(?:Claude|Anthropic).*\n?",
         "",
         "Drop Co-Authored-By lines referencing AI assistants",
     ),
+    ("(?mi)^-\\s*Claude.*\n?", "", "Remove Claude bullet entries"),
     (
         "(?s)\\A\\s*\n+",
         "",
@@ -121,17 +132,17 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         enforce_spec = false;
     }
 
-    if let Some(pattern) = &args.message_pattern {
+    if let Some(pattern) = &args.msg_pattern {
         let desc = args
-            .message_description
+            .msg_pattern_description
             .clone()
             .or_else(|| Some(format!("Commit message must match pattern `{pattern}`")));
         message_pattern = Some(build_message_pattern(pattern, desc)?);
         enforce_spec = false;
-    } else if args.message_description.is_some()
+    } else if args.msg_pattern_description.is_some()
         && let Some(mp) = message_pattern.as_mut()
     {
-        mp.description = args.message_description.clone();
+        mp.description = args.msg_pattern_description.clone();
     }
 
     let mut options = LintOptions {
@@ -198,6 +209,15 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         options
             .cleanup_rules
             .push(build_cleanup_rule(&find, &replace, None)?);
+    }
+
+    if let Some(pattern) = &args.cleanup_pattern {
+        let replace = args.cleanup_replacement.clone().unwrap_or_default();
+        options.cleanup_rules.push(build_cleanup_rule(
+            pattern,
+            &replace,
+            args.cleanup_description.clone(),
+        )?);
     }
 
     if args.single_line {

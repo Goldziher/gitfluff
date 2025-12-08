@@ -36,13 +36,13 @@ npm install -g gitfluff
 ### npx (no install)
 
 ```bash
-npx gitfluff@0.3.4 --version
+npx gitfluff@0.4.0 --version
 ```
 
-### pip (Python)
+### uv (Python)
 
 ```bash
-pip install gitfluff
+uv tool install gitfluff
 ```
 
 ### uvx (no install)
@@ -69,6 +69,22 @@ Lint strings from other tools or scripts:
 
 ```bash
 echo "feat: add session caching" | gitfluff lint --stdin
+```
+
+### Custom regex patterns
+
+Prefer a bespoke style over Conventional Commits? Supply `--msg-pattern` (and
+an optional `--msg-pattern-description`) to override the default header check.
+Pair it with `--cleanup-pattern` (and optional `--cleanup-replacement`) to
+rewrite headers before validation when needed:
+
+```bash
+gitfluff lint \
+  --cleanup-pattern "^TEMP: " \
+  --cleanup-replacement "feat: " \
+  --msg-pattern "^JIRA-[0-9]+: .+$" \
+  --msg-pattern-description "Ticket prefix required" \
+  .git/COMMIT_EDITMSG
 ```
 
 ### Git Hooks
@@ -98,11 +114,13 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.3.4
+    rev: v0.4.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
-        # args: ["--write"] # optional cleanup in place
+        # args: ["--msg-pattern", "^JIRA-[0-9]+: .+"]  # optional regex override
+        # args: ["--cleanup-pattern", "^TEMP: ", "--cleanup-replacement", "feat: "]
+        # args: ["--write"]  # optional cleanup in place
 ```
 
 Then install the hooks:
@@ -121,11 +139,18 @@ If part of your team prefers `pre-commit` while others rely on Lefthook (or you 
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.3.4
+    rev: v0.4.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
-        args: ["--write"] # optional cleanup in place
+        args:
+          - "--msg-pattern"
+          - "^JIRA-[0-9]+: .+$"
+          - "--cleanup-pattern"
+          - "^TEMP: "
+          - "--cleanup-replacement"
+          - "feat: "
+          - "--write"
 ```
 
 ```yaml
@@ -133,7 +158,7 @@ repos:
 commit-msg:
   commands:
     gitfluff:
-      run: npx gitfluff lint --write {1}
+      run: npx gitfluff lint --msg-pattern '^JIRA-[0-9]+: .+$' --cleanup-pattern '^TEMP: ' --cleanup-replacement 'feat: ' --write {1}
 ```
 
 This guarantees every commit message flows through the same lint/cleanup rules no matter which hook runner is active.
@@ -214,10 +239,13 @@ Any value defined on the command line overrides the config for that run.
 
 ## Advanced Usage
 
+- **Custom regex patterns** – Replace Conventional Commits validation with
+  `--msg-pattern '<regex>'` (optionally with `--msg-pattern-description "message"`).
+  Pair with `--cleanup-pattern`/`--cleanup-replacement` to rewrite headers before validation.
 - **Presets** – Built-in styles: `conventional` (default), `conventional-body`, and `simple` (single-line summary).
 - **Body policies** – Toggle between single-line commits (`--single-line`), required bodies (`--require-body`), or the preset/config defaults.
 - **Custom rules** – Stack multiple `--exclude <regex[:message]>` and `--cleanup <find->replace>` options for ad-hoc policies without editing configuration files.
-- **Temporary overrides** – Use `--preset`, `--message-pattern`, or `--message-description` to tighten rules in CI pipelines or release workflows without touching project config.
+- **Temporary overrides** – Use `--preset`, `--msg-pattern`, or `--msg-pattern-description` to tighten rules in CI pipelines or release workflows without touching project config.
 - **Dry-run vs write mode** – Without `--write`, gitfluff only reports issues and suggested cleanups. Add `--write` to apply cleanups to files or emit the cleaned message to stdout when reading from stdin.
 
 ### Example: Combine overrides and write mode

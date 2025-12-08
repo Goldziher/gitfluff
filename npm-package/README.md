@@ -15,7 +15,7 @@ npm install -g gitfluff
 **Run without installation:**
 
 ```bash
-npx gitfluff@0.3.4 --version
+npx gitfluff@0.4.0 --version
 ```
 
 **Lint a commit message:**
@@ -57,10 +57,11 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.3.4
+    rev: v0.4.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
+        # args: ["--msg-pattern", "^JIRA-[0-9]+: .+"]  # optional regex override
 ```
 
 **Install the hooks:**
@@ -125,7 +126,7 @@ All keys are optional—omit the file to stick with the default Conventional Com
 
 ## Advanced usage
 
-- Override rules inline with CLI flags: `--preset`, `--message-pattern`, `--exclude`, `--cleanup`, `--single-line`, `--require-body`.
+- Override rules inline with CLI flags: `--preset`, `--msg-pattern`, `--exclude`, `--cleanup`, `--cleanup-pattern`, `--single-line`, `--require-body`.
 - Combine with `--write` to apply cleanups when running inside hooks or automation.
 - Set `GITFLUFF_BINARY` to point at a custom build if you need to test unpublished binaries.
 

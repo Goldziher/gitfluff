@@ -40,17 +40,46 @@ pub struct LintArgs {
     #[arg(long)]
     pub preset: Option<String>,
 
-    #[arg(long)]
-    pub message_pattern: Option<String>,
+    /// Provide a custom regex that the commit summary must satisfy.
+    #[arg(
+        long = "msg-pattern",
+        alias = "message-pattern",
+        value_name = "REGEX",
+        help = "Override the Conventional Commits check with a custom regex."
+    )]
+    pub msg_pattern: Option<String>,
 
-    #[arg(long)]
-    pub message_description: Option<String>,
+    /// Optional error text shown when the pattern doesn't match.
+    #[arg(
+        long = "msg-pattern-description",
+        alias = "message-description",
+        value_name = "TEXT"
+    )]
+    pub msg_pattern_description: Option<String>,
 
     #[arg(long)]
     pub exclude: Vec<String>,
 
     #[arg(long)]
     pub cleanup: Vec<String>,
+
+    /// Regex used to sanitize commit messages (replacement defaults to empty).
+    #[arg(long = "cleanup-pattern", value_name = "REGEX")]
+    pub cleanup_pattern: Option<String>,
+
+    #[arg(
+        long = "cleanup-replacement",
+        value_name = "TEXT",
+        requires = "cleanup_pattern"
+    )]
+    pub cleanup_replacement: Option<String>,
+
+    #[arg(
+        long = "cleanup-description",
+        value_name = "TEXT",
+        requires = "cleanup_pattern"
+    )]
+    pub cleanup_description: Option<String>,
 
     #[arg(long)]
     pub config: Option<PathBuf>,

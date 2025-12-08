@@ -6,10 +6,10 @@ This Python package distributes prebuilt `gitfluff` binaries. On first use, the 
 
 ## Quick Start
 
-**Install with pip:**
+**Install with uv:**
 
 ```bash
-pip install gitfluff
+uv tool install gitfluff
 ```
 
 **Run without installation (uvx):**
@@ -57,10 +57,11 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.3.4
+    rev: v0.4.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
+        # args: ["--msg-pattern", "^JIRA-[0-9]+: .+"]  # optional regex override
 ```
 
 **Install the hooks:**
@@ -101,7 +102,7 @@ Any setting can be left out; omit the file entirely to keep defaults.
 
 ## Advanced usage
 
-- Override rules per-invocation using CLI flags (e.g. `--preset`, `--exclude`, `--cleanup`, `--single-line`).
+- Override rules per-invocation using CLI flags (e.g. `--preset`, `--msg-pattern`, `--cleanup-pattern`, `--exclude`, `--cleanup`, `--single-line`).
 - Set `GITFLUFF_BINARY` to point at a custom build when testing unpublished versions.
 - Clear the cache (`rm ~/.cache/gitfluff/gitfluff*`) to force a fresh download.
 

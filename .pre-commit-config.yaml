@@ -8,6 +8,7 @@ repos:
     hooks:
       - id: gitfluff-lint
         args: ["--write"]
+        # args: ["--msg-pattern", "^JIRA-[0-9]+: .+$"]  # optional regex override
         stages: [commit-msg]
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
