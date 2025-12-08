@@ -1,19 +1,9 @@
-- id: gitfluff-lint
-  name: gitfluff (lint)
-  description: Lint commit messages using gitfluff
-  entry: gitfluff lint
-  language: system
-  stages: [commit-msg]
-  pass_filenames: true
-  always_run: true
-  minimum_pre_commit_version: "2.9.0"
-
-- id: gitfluff-write
-  name: gitfluff (lint + write)
-  description: Lint and rewrite commit messages using gitfluff --write
-  entry: gitfluff lint --write
-  language: system
-  stages: [commit-msg]
-  pass_filenames: true
-  always_run: true
-  minimum_pre_commit_version: "2.9.0"
+-   id: gitfluff-lint
+    name: gitfluff commit message linter
+    description: Enforce Conventional Commits and optional cleanup policies for commit messages.
+    entry: gitfluff lint
+    language: rust
+    types: [text]
+    always_run: true
+    pass_filenames: true
+    stages: [commit-msg]

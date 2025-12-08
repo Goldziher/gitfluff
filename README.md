@@ -12,34 +12,41 @@
 ## Install
 
 **Homebrew**
+
 ```bash
 brew tap goldziher/tap
 ```
+
 ```bash
 brew install gitfluff
 ```
 
 **Cargo (Rust)**
+
 ```bash
 cargo install gitfluff
 ```
 
 **npm (global)**
+
 ```bash
 npm install -g gitfluff
 ```
 
 **npx (no install)**
+
 ```bash
 npx gitfluff@0.3.3 --version
 ```
 
 **pip (Python)**
+
 ```bash
 pip install gitfluff
 ```
 
 **uvx (no install)**
+
 ```bash
 uvx gitfluff --version
 ```
@@ -67,11 +74,13 @@ echo "feat: add session caching" | gitfluff lint --stdin
 ### Git Hooks
 
 **Install a native Git commit-msg hook**
+
 ```bash
 gitfluff hook install commit-msg
 ```
 
 **With auto-cleanup enabled**
+
 ```bash
 gitfluff hook install commit-msg --write
 ```
@@ -81,6 +90,7 @@ gitfluff hook install commit-msg --write
 **pre-commit framework**
 
 Add to `.pre-commit-config.yaml`:
+
 ```yaml
 default_install_hook_types:
   - pre-commit
@@ -92,26 +102,33 @@ repos:
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
+        # args: ["--write"] # optional cleanup in place
 ```
 
 Then install the hooks:
+
 ```bash
 pre-commit install
 ```
 
+`gitfluff-lint` is defined in `.pre-commit-hooks.yaml`, so `pre-commit` will use Cargo to build the binary once and reuse it for subsequent runs. Because the hook runs in the `commit-msg` stage, `pre-commit` provides the path to the temporary commit message file automatically—no extra configuration is required beyond the snippet above.
+
 **Husky (npm/npx)**
 
 Initialize Husky:
+
 ```bash
 npx husky init
 ```
 
 Create the commit-msg hook:
+
 ```bash
 echo 'npx gitfluff lint "$1"' > .husky/commit-msg
 ```
 
 Make it executable:
+
 ```bash
 chmod +x .husky/commit-msg
 ```
@@ -119,6 +136,7 @@ chmod +x .husky/commit-msg
 **Lefthook (npx)**
 
 Add to `lefthook.yml`:
+
 ```yaml
 commit-msg:
   commands:
@@ -127,6 +145,7 @@ commit-msg:
 ```
 
 Install the hooks:
+
 ```bash
 npx lefthook install
 ```
@@ -134,6 +153,7 @@ npx lefthook install
 **Lefthook (uvx)**
 
 Add to `lefthook.yml`:
+
 ```yaml
 commit-msg:
   commands:
@@ -142,6 +162,7 @@ commit-msg:
 ```
 
 Install the hooks:
+
 ```bash
 npx lefthook install
 ```
@@ -177,6 +198,7 @@ Any value defined on the command line overrides the config for that run.
 ### Example: Combine overrides and write mode
 
 Enforce single-line commits, strip trailing whitespace, block "temp" headers, and rewrite in place:
+
 ```bash
 gitfluff lint .git/COMMIT_EDITMSG --exclude "(?i)temp" --cleanup "\\s+$->" --single-line --write
 ```
