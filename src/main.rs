@@ -71,7 +71,7 @@ fn run() -> Result<i32> {
     let cli = Cli::parse();
 
     match cli.command {
-        Commands::Lint(args) => run_lint(args),
+        Commands::Lint(args) => run_lint(*args),
         Commands::Hook(HookCommand::Install(args)) => run_hook_install(args),
     }
 }
@@ -300,7 +300,11 @@ fn apply_write(message: &MessageData, cleaned: &str) -> Result<()> {
 }
 
 fn load_message(args: &LintArgs) -> Result<MessageData> {
-    if args.from_file.is_none() && args.commit_file.is_none() && !args.stdin && args.message.is_none() {
+    if args.from_file.is_none()
+        && args.commit_file.is_none()
+        && !args.stdin
+        && args.message.is_none()
+    {
         return Err(anyhow!(
             "no commit message source provided (pass COMMIT_FILE, --from-file, --stdin, or --message)"
         ));

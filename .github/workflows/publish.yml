@@ -50,15 +50,17 @@ jobs:
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             tag="${{ github.event.inputs.tag }}"
           else
-            tag=${GITHUB_REF#refs/tags/}
+            tag="${GITHUB_REF#refs/tags/}"
           fi
 
-          version=${tag#v}
-          python_version=$(echo $version | sed 's/-rc\.//g; s/-rc/rc/')
+          version="${tag#v}"
+          python_version="$(echo "$version" | sed 's/-rc\.//g; s/-rc/rc/')"
 
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "python_version=$python_version" >> $GITHUB_OUTPUT
-          echo "tag=$tag" >> $GITHUB_OUTPUT
+          {
+            echo "version=$version"
+            echo "python_version=$python_version"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
 
           echo "Git tag: $tag"
           echo "Cargo/npm version: $version"

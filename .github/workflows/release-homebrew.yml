@@ -56,7 +56,7 @@ jobs:
       - name: Configure cross-compilation
         if: matrix.target == 'aarch64-unknown-linux-gnu'
         run: |
-          echo 'CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc' >> $GITHUB_ENV
+          echo 'CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc' >> "$GITHUB_ENV"
 
       - name: Cache cargo
         uses: actions/cache@v4
@@ -110,10 +110,12 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          tag=${GITHUB_REF#refs/tags/}
-          version=${tag#v}
-          echo "version=$version" >> $GITHUB_OUTPUT
-          echo "tag=$tag" >> $GITHUB_OUTPUT
+          tag="${GITHUB_REF#refs/tags/}"
+          version="${tag#v}"
+          {
+            echo "version=$version"
+            echo "tag=$tag"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Create or update release
         env:
@@ -134,41 +136,13 @@ jobs:
             gh release delete "$tag" --yes --cleanup-tag
           fi
 
+          # shellcheck disable=SC2016
+          release_notes=$'## What'\''s Changed\n\nSee the changelog for full details.\n\n## Installation\n\n### Homebrew\n```bash\nbrew tap goldziher/tap\nbrew install gitfluff\n```\n\n### Rust/Cargo\n```bash\ncargo install gitfluff\n```\n\n### npm\n```bash\nnpm install -g gitfluff\n```\n\n### pip\n```bash\npip install gitfluff\n```\n\n### Direct Download\nDownload the appropriate binary for your platform below.\n'
+
           gh release create "$tag" \
             $prerelease_flag \
             --title "$title_prefix $tag" \
-            --notes "$(cat <<'EOF'
-## What's Changed
-
-See the changelog for full details.
-
-## Installation
-
-### Homebrew
-```bash
-brew tap goldziher/tap
-brew install gitfluff
-```
-
-### Rust/Cargo
-```bash
-cargo install gitfluff
-```
-
-### npm
-```bash
-npm install -g gitfluff
-```
-
-### pip
-```bash
-pip install gitfluff
-```
-
-### Direct Download
-Download the appropriate binary for your platform below.
-EOF
-          )"
+            --notes "$release_notes"
 
           for artifact in gitfluff-*/; do
             files=$(find "$artifact" -name "*.tar.gz" -o -name "*.zip")

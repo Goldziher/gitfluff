@@ -7,21 +7,25 @@ This Python package distributes prebuilt `gitfluff` binaries. On first use, the 
 ## Quick Start
 
 **Install with pip:**
+
 ```bash
 pip install gitfluff
 ```
 
 **Run without installation (uvx):**
+
 ```bash
 uvx gitfluff --version
 ```
 
 **Lint a commit message:**
+
 ```bash
 gitfluff lint .git/COMMIT_EDITMSG
 ```
 
 **Auto-clean and rewrite:**
+
 ```bash
 gitfluff lint .git/COMMIT_EDITMSG --write
 ```
@@ -31,11 +35,13 @@ gitfluff lint .git/COMMIT_EDITMSG --write
 ### Native Git Hook
 
 **Install commit-msg hook:**
+
 ```bash
 gitfluff hook install commit-msg
 ```
 
 **With auto-cleanup:**
+
 ```bash
 gitfluff hook install commit-msg --write
 ```
@@ -43,6 +49,7 @@ gitfluff hook install commit-msg --write
 ### pre-commit Framework
 
 **Add to `.pre-commit-config.yaml`:**
+
 ```yaml
 default_install_hook_types:
   - pre-commit
@@ -57,6 +64,7 @@ repos:
 ```
 
 **Install the hooks:**
+
 ```bash
 pre-commit install
 ```
@@ -64,6 +72,7 @@ pre-commit install
 ### Lefthook (uvx)
 
 **Add to `lefthook.yml`:**
+
 ```yaml
 commit-msg:
   commands:
@@ -72,6 +81,7 @@ commit-msg:
 ```
 
 **Install hooks:**
+
 ```bash
 npx lefthook install
 ```

@@ -13,7 +13,7 @@ pub struct Cli {
 
 #[derive(Debug, Subcommand)]
 pub enum Commands {
-    Lint(LintArgs),
+    Lint(Box<LintArgs>),
     #[command(subcommand)]
     Hook(HookSubcommand),
 }

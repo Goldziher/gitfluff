@@ -7,21 +7,25 @@ This npm package distributes prebuilt `gitfluff` binaries for Node.js environmen
 ## Quick Start
 
 **Install globally:**
+
 ```bash
 npm install -g gitfluff
 ```
 
 **Run without installation:**
+
 ```bash
 npx gitfluff@0.3.3 --version
 ```
 
 **Lint a commit message:**
+
 ```bash
 gitfluff lint .git/COMMIT_EDITMSG
 ```
 
 **Auto-clean and rewrite:**
+
 ```bash
 gitfluff lint .git/COMMIT_EDITMSG --write
 ```
@@ -31,11 +35,13 @@ gitfluff lint .git/COMMIT_EDITMSG --write
 ### Native Git Hook
 
 **Install commit-msg hook:**
+
 ```bash
 gitfluff hook install commit-msg
 ```
 
 **With auto-cleanup:**
+
 ```bash
 gitfluff hook install commit-msg --write
 ```
@@ -43,6 +49,7 @@ gitfluff hook install commit-msg --write
 ### pre-commit Framework
 
 **Add to `.pre-commit-config.yaml`:**
+
 ```yaml
 default_install_hook_types:
   - pre-commit
@@ -57,6 +64,7 @@ repos:
 ```
 
 **Install the hooks:**
+
 ```bash
 pre-commit install
 ```
@@ -64,16 +72,19 @@ pre-commit install
 ### Husky
 
 **Initialize Husky:**
+
 ```bash
 npx husky init
 ```
 
 **Create commit-msg hook:**
+
 ```bash
 echo 'npx gitfluff lint "$1"' > .husky/commit-msg
 ```
 
 **Make it executable:**
+
 ```bash
 chmod +x .husky/commit-msg
 ```
@@ -81,6 +92,7 @@ chmod +x .husky/commit-msg
 ### Lefthook
 
 **Add to `lefthook.yml`:**
+
 ```yaml
 commit-msg:
   commands:
@@ -89,6 +101,7 @@ commit-msg:
 ```
 
 **Install hooks:**
+
 ```bash
 npx lefthook install
 ```

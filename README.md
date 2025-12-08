@@ -2,7 +2,7 @@
 
 `gitfluff` keeps your commit history consistent by enforcing structured messages, optional policy rules, and reversible cleanups. Installs ship prebuilt binaries for macOS, Linux, and Windows. The linter is fully compliant with the [Conventional Commits 1.0.0 specification](https://www.conventionalcommits.org/en/v1.0.0/), including all header, body, footer, and `BREAKING CHANGE` requirements.
 
-### Highlights
+## Highlights
 
 - **Ready out of the box**: Conventional Commits enforcement plus automatic removal of common AI signatures (🤖 banners, AI co-author trailers).
 - **Developer friendly**: works with `npx`, `uvx`, Homebrew, Cargo, or a simple binary drop.
@@ -11,7 +11,7 @@
 
 ## Install
 
-**Homebrew**
+### Homebrew
 
 ```bash
 brew tap goldziher/tap
@@ -21,31 +21,31 @@ brew tap goldziher/tap
 brew install gitfluff
 ```
 
-**Cargo (Rust)**
+### Cargo (Rust)
 
 ```bash
 cargo install gitfluff
 ```
 
-**npm (global)**
+### npm (global)
 
 ```bash
 npm install -g gitfluff
 ```
 
-**npx (no install)**
+### npx (no install)
 
 ```bash
 npx gitfluff@0.3.3 --version
 ```
 
-**pip (Python)**
+### pip (Python)
 
 ```bash
 pip install gitfluff
 ```
 
-**uvx (no install)**
+### uvx (no install)
 
 ```bash
 uvx gitfluff --version
@@ -73,13 +73,13 @@ echo "feat: add session caching" | gitfluff lint --stdin
 
 ### Git Hooks
 
-**Install a native Git commit-msg hook**
+#### Install a native Git commit-msg hook
 
 ```bash
 gitfluff hook install commit-msg
 ```
 
-**With auto-cleanup enabled**
+#### With auto-cleanup enabled
 
 ```bash
 gitfluff hook install commit-msg --write
@@ -87,7 +87,7 @@ gitfluff hook install commit-msg --write
 
 ### Hook Manager Integrations
 
-**pre-commit framework**
+#### pre-commit framework
 
 Add to `.pre-commit-config.yaml`:
 
@@ -113,7 +113,32 @@ pre-commit install
 
 `gitfluff-lint` is defined in `.pre-commit-hooks.yaml`, so `pre-commit` will use Cargo to build the binary once and reuse it for subsequent runs. Because the hook runs in the `commit-msg` stage, `pre-commit` provides the path to the temporary commit message file automatically—no extra configuration is required beyond the snippet above.
 
-**Husky (npm/npx)**
+#### Example: pre-commit and Lefthook together
+
+If part of your team prefers `pre-commit` while others rely on Lefthook (or you run different hook managers locally vs CI), configure both to delegate `commit-msg` checks to `gitfluff`. The same version and options are reused in each manager:
+
+```yaml
+# .pre-commit-config.yaml
+repos:
+  - repo: https://github.com/Goldziher/gitfluff
+    rev: v0.3.3
+    hooks:
+      - id: gitfluff-lint
+        stages: [commit-msg]
+        args: ["--write"] # optional cleanup in place
+```
+
+```yaml
+# lefthook.yml
+commit-msg:
+  commands:
+    gitfluff:
+      run: npx gitfluff lint --write {1}
+```
+
+This guarantees every commit message flows through the same lint/cleanup rules no matter which hook runner is active.
+
+#### Husky (npm/npx)
 
 Initialize Husky:
 
@@ -133,7 +158,7 @@ Make it executable:
 chmod +x .husky/commit-msg
 ```
 
-**Lefthook (npx)**
+#### Lefthook (npx)
 
 Add to `lefthook.yml`:
 
@@ -150,7 +175,7 @@ Install the hooks:
 npx lefthook install
 ```
 
-**Lefthook (uvx)**
+#### Lefthook (uvx)
 
 Add to `lefthook.yml`:
 

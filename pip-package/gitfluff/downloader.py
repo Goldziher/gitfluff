@@ -81,7 +81,9 @@ def _extract(archive: Path, ext: str, destination: Path) -> None:
     else:
         with tarfile.open(archive, "r:gz") as tar:
             for member in tar.getmembers():
-                if member.name.endswith("gitfluff") or member.name.endswith("gitfluff.exe"):
+                if member.name.endswith("gitfluff") or member.name.endswith(
+                    "gitfluff.exe"
+                ):
                     with tar.extractfile(member) as src, destination.open("wb") as dst:
                         dst.write(src.read())
                     return

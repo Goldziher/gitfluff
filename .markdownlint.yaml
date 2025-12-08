@@ -1,0 +1,6 @@
+MD013:
+  line_length: 400
+  heading_line_length: 200
+  code_block_line_length: 0
+  tables: false
+  headings: false
