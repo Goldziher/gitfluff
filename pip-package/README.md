@@ -57,7 +57,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.3.3
+    rev: v0.3.4
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]

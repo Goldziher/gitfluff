@@ -1,6 +1,6 @@
 {
 	"name": "gitfluff",
-	"version": "0.3.3",
+	"version": "0.3.4",
 	"description": "Commit message linter and formatter.",
 	"license": "MIT",
 	"bin": {
