@@ -34,6 +34,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: stable
+          cache: false
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -41,7 +42,7 @@ jobs:
           targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-apple-darwin,aarch64-apple-darwin,x86_64-pc-windows-gnu
 
       - name: Install Zig
-        run: brew install zig
+        run: brew install zig mingw-w64
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
