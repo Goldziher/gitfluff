@@ -15,8 +15,7 @@ fn lint_passes_for_conventional_commit() {
     let msg_path = dir.path().join("message.txt");
     write_message(&msg_path, "feat: add login\n");
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .arg("lint")
         .arg("--from-file")
         .arg(&msg_path)
@@ -32,8 +31,7 @@ fn lint_accepts_positional_commit_file() {
     let msg_path = dir.path().join("message.txt");
     write_message(&msg_path, "feat: add login\n");
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .arg("lint")
         .arg(&msg_path)
         .assert()
@@ -51,8 +49,7 @@ fn lint_fails_for_ai_attribution_without_write() {
         "feat: add login\n\n🤖 Generated with Claude\n- Claude\nCo-Authored-By: Claude Sonnet 4.5\n<noreply@anthropic.com>\n",
     );
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .arg("lint")
         .arg("--from-file")
         .arg(&msg_path)
@@ -71,16 +68,14 @@ fn simple_preset_enforces_single_line() {
     let msg_path = dir.path().join("msg.txt");
 
     write_message(&msg_path, "Fix login button alignment\n");
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args(["lint", "--preset", "simple", "--from-file"])
         .arg(&msg_path)
         .assert()
         .success();
 
     write_message(&msg_path, "fix: add body\n\nextra details\n");
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args(["lint", "--preset", "simple", "--from-file"])
         .arg(&msg_path)
         .assert()
@@ -94,8 +89,7 @@ fn conventional_body_preset_requires_body() {
     let msg_path = dir.path().join("msg.txt");
 
     write_message(&msg_path, "feat: add login\n");
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args(["lint", "--preset", "conventional-body", "--from-file"])
         .arg(&msg_path)
         .assert()
@@ -103,8 +97,7 @@ fn conventional_body_preset_requires_body() {
         .stderr(predicate::str::contains("must include a body"));
 
     write_message(&msg_path, "feat: add login\n\nExplain rationale\n");
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args(["lint", "--preset", "conventional-body", "--from-file"])
         .arg(&msg_path)
         .assert()
@@ -120,8 +113,7 @@ fn lint_applies_cleanup_with_write_flag() {
         "feat: add login\n\n🤖 Generated with Claude\n- Claude\nCo-Authored-By: Claude Sonnet 4.5\n<noreply@anthropic.com>\n",
     );
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .arg("lint")
         .arg("--from-file")
         .arg(&msg_path)
@@ -159,8 +151,7 @@ require_body = true
     )
     .unwrap();
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .arg("lint")
         .arg("--from-file")
         .arg(&msg_path)
@@ -176,16 +167,14 @@ fn lint_accepts_custom_pattern_flag() {
     let msg_path = dir.path().join("msg.txt");
     write_message(&msg_path, "JIRA-123 Fix login flow\n");
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .arg("lint")
         .arg("--from-file")
         .arg(&msg_path)
         .assert()
         .failure();
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args(["lint", "--msg-pattern", "^JIRA-[0-9]+\\s.+$", "--from-file"])
         .arg(&msg_path)
         .assert()
@@ -198,8 +187,7 @@ fn lint_uses_custom_pattern_description() {
     let msg_path = dir.path().join("msg.txt");
     write_message(&msg_path, "update docs\n");
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args([
             "lint",
             "--msg-pattern",
@@ -215,6 +203,25 @@ fn lint_uses_custom_pattern_description() {
 }
 
 #[test]
+fn lint_skips_when_merge_commit_in_progress() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "Merge branch 'feature' into main\n");
+
+    let git_dir = dir.path().join(".git");
+    fs::create_dir_all(&git_dir).unwrap();
+    fs::write(git_dir.join("MERGE_HEAD"), "deadbeef").unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+}
+
+#[test]
 fn ai_cleanup_removes_claude_signature_variants() {
     let samples = [
         "feat: keep login\n\n🤖 Generated with [Claude\nCode](https://claude.com/claude-code)\n\n  Co-Authored-By: Claude Sonnet 4.5\n  <noreply@anthropic.com>\n",
@@ -226,8 +233,7 @@ fn ai_cleanup_removes_claude_signature_variants() {
         let msg_path = dir.path().join("msg.txt");
         write_message(&msg_path, content);
 
-        Command::cargo_bin("gitfluff")
-            .unwrap()
+        cargo::cargo_bin_cmd!("gitfluff")
             .arg("lint")
             .arg("--write")
             .arg("--from-file")
@@ -246,8 +252,7 @@ fn cleanup_pattern_sanitizes_message() {
     let msg_path = dir.path().join("msg.txt");
     write_message(&msg_path, "TEMP: fix bug\n\nDetails here\n");
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args([
             "lint",
             "--cleanup-pattern",
@@ -261,8 +266,7 @@ fn cleanup_pattern_sanitizes_message() {
         .success()
         .stderr(predicate::str::contains("cleanup available"));
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args([
             "lint",
             "--cleanup-pattern",
@@ -288,8 +292,7 @@ fn hook_install_creates_commit_msg_script() {
     let hooks_dir = git_dir.join("hooks");
     fs::create_dir_all(&hooks_dir).unwrap();
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args(["hook", "install", "commit-msg"])
         .current_dir(dir.path())
         .assert()
@@ -307,8 +310,7 @@ fn hook_behaves_like_precommit_example() {
     let git_dir = dir.path().join(".git");
     fs::create_dir_all(git_dir.join("hooks")).unwrap();
 
-    Command::cargo_bin("gitfluff")
-        .unwrap()
+    cargo::cargo_bin_cmd!("gitfluff")
         .args(["hook", "install", "commit-msg", "--write"])
         .current_dir(dir.path())
         .assert()
@@ -321,7 +323,7 @@ fn hook_behaves_like_precommit_example() {
     );
 
     let script_path = dir.path().join(".git/hooks/commit-msg");
-    let gitfluff_bin_dir = cargo::cargo_bin("gitfluff")
+    let gitfluff_bin_dir = cargo::cargo_bin!("gitfluff")
         .parent()
         .expect("bin directory")
         .to_path_buf();

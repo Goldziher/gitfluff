@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gitfluff"
-version = "0.4.0"
+version = "0.5.0"
 description = "Commit message linter and formatter"
 readme = "README.md"
 license = {text = "MIT"}

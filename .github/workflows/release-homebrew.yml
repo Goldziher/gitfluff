@@ -1,4 +1,4 @@
-name: Release with Homebrew
+name: Release Homebrew
 
 on:
   release:
@@ -8,153 +8,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: write
-
 jobs:
-  build:
-    if: startsWith(github.ref, 'refs/tags/v')
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: gitfluff
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact_name: gitfluff
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: gitfluff.exe
-          - os: windows-latest
-            target: i686-pc-windows-msvc
-            artifact_name: gitfluff.exe
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: gitfluff
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact_name: gitfluff
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
-
-      - name: Install cross-compilation tools
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu
-
-      - name: Configure cross-compilation
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: |
-          echo 'CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc' >> "$GITHUB_ENV"
-
-      - name: Cache cargo
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Build
-        run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Create tar.gz for Unix-like systems
-        if: matrix.os != 'windows-latest'
-        run: |
-          cd target/${{ matrix.target }}/release
-          tar czf gitfluff-${{ matrix.target }}.tar.gz ${{ matrix.artifact_name }}
-          mv gitfluff-${{ matrix.target }}.tar.gz ../../../
-
-      - name: Create zip for Windows
-        if: matrix.os == 'windows-latest'
-        run: |
-          cd target/${{ matrix.target }}/release
-          7z a -tzip gitfluff-${{ matrix.target }}.zip ${{ matrix.artifact_name }}
-          mv gitfluff-${{ matrix.target }}.zip ../../../
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: gitfluff-${{ matrix.target }}
-          path: |
-            gitfluff-${{ matrix.target }}.tar.gz
-            gitfluff-${{ matrix.target }}.zip
-
-  release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-      tag: ${{ steps.version.outputs.tag }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v5
-
-      - name: Extract version
-        id: version
-        run: |
-          tag="${GITHUB_REF#refs/tags/}"
-          version="${tag#v}"
-          {
-            echo "version=$version"
-            echo "tag=$tag"
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Create or update release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          tag="${{ steps.version.outputs.tag }}"
-
-          if [[ "$tag" == *"-rc."* ]]; then
-            prerelease_flag="--prerelease"
-            title_prefix="Release Candidate"
-          else
-            prerelease_flag=""
-            title_prefix="Release"
-          fi
-
-          if gh release view "$tag" >/dev/null 2>&1; then
-            echo "Release $tag already exists, deleting to recreate..."
-            gh release delete "$tag" --yes --cleanup-tag
-          fi
-
-          # shellcheck disable=SC2016
-          release_notes=$'## What'\''s Changed\n\nSee the changelog for full details.\n\n## Installation\n\n### Homebrew\n```bash\nbrew tap goldziher/tap\nbrew install gitfluff\n```\n\n### Rust/Cargo\n```bash\ncargo install gitfluff\n```\n\n### npm\n```bash\nnpm install -g gitfluff\n```\n\n### uv\n```bash\nuv tool install gitfluff\n```\n\n### Direct Download\nDownload the appropriate binary for your platform below.\n'
-
-          gh release create "$tag" \
-            $prerelease_flag \
-            --title "$title_prefix $tag" \
-            --notes "$release_notes"
-
-          for artifact in gitfluff-*/; do
-            files=$(find "$artifact" -name "*.tar.gz" -o -name "*.zip")
-            for file in $files; do
-              gh release upload "$tag" "$file"
-            done
-          done
-
   homebrew:
     if: startsWith(github.ref, 'refs/tags/v')
     name: Update Homebrew Formula
-    needs: release
     runs-on: ubuntu-latest
     steps:
       - name: Update Homebrew formula
@@ -163,7 +20,7 @@ jobs:
           formula-name: gitfluff
           formula-path: Formula/gitfluff.rb
           homebrew-tap: Goldziher/homebrew-tap
-          download-url: https://github.com/Goldziher/gitfluff/archive/${{ needs.release.outputs.tag }}.tar.gz
+          download-url: https://github.com/Goldziher/gitfluff/archive/${{ github.event.release.tag_name }}.tar.gz
           commit-message: |
             {{formulaName}} {{version}}
 

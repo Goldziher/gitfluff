@@ -23,9 +23,9 @@ def _platform_triple() -> str:
 
     if system == "windows":
         if machine in {"amd64", "x86_64"}:
-            return "x86_64-pc-windows-msvc"
+            return "x86_64-pc-windows-gnu"
         if machine in {"x86", "i386", "i686"}:
-            return "i686-pc-windows-msvc"
+            raise RuntimeError("32-bit Windows is not supported")
     elif system == "linux":
         if machine in {"amd64", "x86_64"}:
             return "x86_64-unknown-linux-gnu"

@@ -237,7 +237,7 @@ fn validate_conventional_spec(message: &str, policy: BodyPolicy) -> Vec<String> 
 
 fn parse_header(header: &str) -> Result<(), String> {
     let colon_index = header.find(':').ok_or_else(|| {
-        "Commit message header must contain a type and `: description` separator".to_string()
+        "Commit message header must look like `type: description` (optional `(scope)` and/or `!`)".to_string()
     })?;
 
     if !header[colon_index..].starts_with(": ") {

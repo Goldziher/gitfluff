@@ -1,6 +1,6 @@
 # gitfluff
 
-Commit message linter with presets, custom formats, and cleanup automation. Fully compliant with [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
+Commit message linter with presets, custom formats, and cleanup automation. Fully compliant with [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Skips linting while Git is creating a merge commit.
 
 This npm package distributes prebuilt `gitfluff` binaries for Node.js environments. The correct release artifact is automatically downloaded during installation.
 
@@ -15,7 +15,7 @@ npm install -g gitfluff
 **Run without installation:**
 
 ```bash
-npx gitfluff@0.4.0 --version
+npx gitfluff@0.5.0 --version
 ```
 
 **Lint a commit message:**
@@ -57,7 +57,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.4.0
+    rev: v0.5.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]

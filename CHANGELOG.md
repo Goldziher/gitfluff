@@ -1,10 +1,28 @@
 # Changelog
 
+This file mirrors `CHANGELOG.md`.
+
 All notable changes to this project are documented here. The format loosely
 follows [Keep a Changelog](https://keepachangelog.com/) and the project adheres
 to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
+
+## [0.5.0] - 2025-12-13
+
+### Added
+
+- Added GoReleaser configuration and updated CI to publish GitHub release assets
+  via GoReleaser.
+
+### Changed
+
+- Merge commits are now ignored during linting so commit-msg hooks won't block
+  `git merge`.
+- Release artifact naming is now consistent across platforms and matches the
+  npm/pip downloaders.
+- Windows release artifacts now target `x86_64-pc-windows-gnu` (32-bit Windows
+  is no longer supported by the binary downloaders).
 
 ## [0.4.0] - 2025-12-08
 

@@ -1,6 +1,6 @@
 # gitfluff
 
-Commit message linter with presets, custom formats, and cleanup automation. Fully compliant with [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/).
+Commit message linter with presets, custom formats, and cleanup automation. Fully compliant with [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Skips linting while Git is creating a merge commit.
 
 This Python package distributes prebuilt `gitfluff` binaries. On first use, the correct release binary for your platform is downloaded and cached under `~/.cache/gitfluff`.
 
@@ -57,7 +57,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.4.0
+    rev: v0.5.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]

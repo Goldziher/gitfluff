@@ -7,6 +7,7 @@
 - **Ready out of the box**: Conventional Commits enforcement plus automatic removal of common AI signatures (🤖 banners, AI co-author trailers).
 - **Developer friendly**: works with `npx`, `uvx`, Homebrew, Cargo, or a simple binary drop.
 - **Hook aware**: drop-in commit-msg integrations for pre-commit, Husky, Lefthook, or raw Git hooks.
+- **Merge-safe**: skips linting while Git is creating a merge commit.
 - **Optional extensions**: configure once through `.gitfluff.toml` or override ad-hoc via CLI flags.
 
 ## Install
@@ -36,7 +37,7 @@ npm install -g gitfluff
 ### npx (no install)
 
 ```bash
-npx gitfluff@0.4.0 --version
+npx gitfluff@0.5.0 --version
 ```
 
 ### uv (Python)
@@ -114,7 +115,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.4.0
+    rev: v0.5.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
@@ -139,7 +140,7 @@ If part of your team prefers `pre-commit` while others rely on Lefthook (or you 
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.4.0
+    rev: v0.5.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]

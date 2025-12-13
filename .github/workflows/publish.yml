@@ -1,8 +1,9 @@
 name: Publish Packages
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - v[0-9]+.*
   workflow_dispatch:
     inputs:
       tag:
@@ -14,19 +15,31 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: write
+
 jobs:
   publish:
     name: Publish to registries
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     environment: pypi
     steps:
       - name: Checkout
         uses: actions/checkout@v5
         with:
+          fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-apple-darwin,aarch64-apple-darwin,x86_64-pc-windows-gnu
+
+      - name: Install Zig
+        run: brew install zig
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -71,7 +84,32 @@ jobs:
           version="${{ steps.version.outputs.version }}"
           python_version="${{ steps.version.outputs.python_version }}"
 
-          sed -i "s/^version = .*/version = \"$version\"/" Cargo.toml
+          python - "$version" "$python_version" <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          cargo_version = sys.argv[1]
+          python_version = sys.argv[2]
+
+          cargo_toml = pathlib.Path("Cargo.toml")
+          cargo_toml.write_text(
+              re.sub(r'(?m)^version = ".*"$', f'version = "{cargo_version}"', cargo_toml.read_text()),
+              encoding="utf-8",
+          )
+
+          pyproject = pathlib.Path("pip-package/pyproject.toml")
+          pyproject.write_text(
+              re.sub(r'(?m)^version = ".*"$', f'version = "{python_version}"', pyproject.read_text()),
+              encoding="utf-8",
+          )
+
+          init_py = pathlib.Path("pip-package/gitfluff/__init__.py")
+          init_py.write_text(
+              re.sub(r'(?m)^__version__ = ".*"$', f'__version__ = "{python_version}"', init_py.read_text()),
+              encoding="utf-8",
+          )
+          PY
 
           cd npm-package
           current_version=$(node -p "require('./package.json').version")
@@ -80,13 +118,19 @@ jobs:
           fi
           cd ..
 
-          sed -i "s/^version = .*/version = \"$python_version\"/" pip-package/pyproject.toml
-          sed -i "s/__version__ = .*/__version__ = \"$python_version\"/" pip-package/gitfluff/__init__.py
-
           echo "Updated versions:"
           grep "^version" Cargo.toml
           grep "\"version\"" npm-package/package.json
           grep "^version" pip-package/pyproject.toml
+
+      - name: Build and publish GitHub release assets
+        uses: goreleaser/goreleaser-action@v6
+        with:
+          distribution: goreleaser
+          version: "~> v2"
+          args: release --clean --skip=validate
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to crates.io
         run: |

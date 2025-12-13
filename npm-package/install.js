@@ -13,8 +13,8 @@ function platformTriple() {
 	const arch = os.arch();
 
 	if (type === "Windows_NT") {
-		if (arch === "x64") return "x86_64-pc-windows-msvc";
-		if (arch === "ia32") return "i686-pc-windows-msvc";
+		if (arch === "x64") return "x86_64-pc-windows-gnu";
+		if (arch === "ia32") throw new Error("32-bit Windows is not supported");
 	} else if (type === "Linux") {
 		if (arch === "x64") return "x86_64-unknown-linux-gnu";
 		if (arch === "arm64") return "aarch64-unknown-linux-gnu";

@@ -101,6 +101,11 @@ fn run_hook_install(args: HookInstallArgs) -> Result<i32> {
 fn run_lint(args: LintArgs) -> Result<i32> {
     let message_data = load_message(&args)?;
     let cwd = std::env::current_dir().context("failed to discover current directory")?;
+
+    if is_merge_commit_in_progress(&cwd) {
+        return Ok(0);
+    }
+
     let loaded_config = load_config(args.config.as_deref(), &cwd)?;
 
     let preset_name = args
@@ -401,5 +406,53 @@ fn format_error(err: &anyhow::Error) -> String {
 fn hook_label(kind: crate::hooks::HookKind) -> &'static str {
     match kind {
         crate::hooks::HookKind::CommitMsg => "commit-msg",
+    }
+}
+
+fn is_merge_commit_in_progress(start_dir: &std::path::Path) -> bool {
+    let mut current = start_dir;
+    loop {
+        let git_dir = current.join(".git");
+        if git_dir.is_dir() {
+            return git_dir.join("MERGE_HEAD").exists();
+        }
+        if git_dir.is_file() {
+            if let Ok(resolved) = resolve_gitdir_file(&git_dir) {
+                return resolved.join("MERGE_HEAD").exists();
+            }
+            return false;
+        }
+        match current.parent() {
+            Some(parent) => current = parent,
+            None => return false,
+        }
+    }
+}
+
+fn resolve_gitdir_file(git_file: &std::path::Path) -> Result<std::path::PathBuf> {
+    let content = fs::read_to_string(git_file)
+        .with_context(|| format!("failed to read gitdir file {}", git_file.display()))?;
+    let content = content.trim();
+
+    let prefix = "gitdir:";
+    if let Some(rest) = content.strip_prefix(prefix) {
+        let raw = rest.trim();
+        let path = std::path::Path::new(raw);
+        let resolved = if path.is_absolute() {
+            path.to_path_buf()
+        } else {
+            git_file
+                .parent()
+                .context("gitdir file missing parent")?
+                .join(path)
+                .canonicalize()
+                .with_context(|| format!("failed to resolve gitdir path {}", path.display()))?
+        };
+        Ok(resolved)
+    } else {
+        Err(anyhow!(
+            "unexpected gitdir file format in {}",
+            git_file.display()
+        ))
     }
 }
