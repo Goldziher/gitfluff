@@ -123,7 +123,7 @@ sections:
 
         - **`ci.yml`** - Runs tests and clippy on every push
         - **`release.yml`** - Builds cross-platform binaries on tag
-        - **`publish.yml`** - Publishes to crates.io, npm, PyPI
+        - **`publish.yaml`** - Publishes to crates.io, npm, PyPI
         - **`release-homebrew.yml`** - Updates Homebrew formula
       name: Project Architecture
       priority: medium
