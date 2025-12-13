@@ -20,10 +20,16 @@ permissions:
   id-token: write
 
 jobs:
-  publish:
-    name: Publish to registries
-    runs-on: macos-latest
-    environment: pypi
+  meta:
+    name: Resolve versions
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      python_version: ${{ steps.version.outputs.python_version }}
+      tag: ${{ steps.version.outputs.tag }}
+      crates_exists: ${{ steps.published.outputs.crates_exists }}
+      npm_exists: ${{ steps.published.outputs.npm_exists }}
+      pypi_exists: ${{ steps.published.outputs.pypi_exists }}
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -31,38 +37,10 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: stable
-          cache: false
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-apple-darwin,aarch64-apple-darwin,x86_64-pc-windows-gnu
-
-      - name: Install Zig
-        run: brew install zig mingw-w64
-
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
           node-version: "20"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Update npm
-        run: npm install -g npm@latest
-
-      - name: Setup Python
-        uses: actions/setup-python@v6
-        with:
-          python-version: "3.8"
-
-      - name: Install Python build tools
-        run: |
-          python -m pip install --upgrade pip
-          pip install build
 
       - name: Extract version from tag
         id: version
@@ -118,49 +96,24 @@ jobs:
           echo "  npm:       $npm_exists"
           echo "  PyPI:      $pypi_exists"
 
-      - name: Update package versions
-        run: |
-          version="${{ steps.version.outputs.version }}"
-          python_version="${{ steps.version.outputs.python_version }}"
+  release_assets:
+    name: Publish GitHub release assets
+    needs: meta
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
-          python - "$version" "$python_version" <<'PY'
-          import pathlib
-          import re
-          import sys
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-unknown-linux-gnu,aarch64-unknown-linux-gnu,x86_64-apple-darwin,aarch64-apple-darwin,x86_64-pc-windows-gnu
 
-          cargo_version = sys.argv[1]
-          python_version = sys.argv[2]
-
-          cargo_toml = pathlib.Path("Cargo.toml")
-          cargo_toml.write_text(
-              re.sub(r'(?m)^version = ".*"$', f'version = "{cargo_version}"', cargo_toml.read_text()),
-              encoding="utf-8",
-          )
-
-          pyproject = pathlib.Path("pip-package/pyproject.toml")
-          pyproject.write_text(
-              re.sub(r'(?m)^version = ".*"$', f'version = "{python_version}"', pyproject.read_text()),
-              encoding="utf-8",
-          )
-
-          init_py = pathlib.Path("pip-package/gitfluff/__init__.py")
-          init_py.write_text(
-              re.sub(r'(?m)^__version__ = ".*"$', f'__version__ = "{python_version}"', init_py.read_text()),
-              encoding="utf-8",
-          )
-          PY
-
-          cd npm-package
-          current_version=$(node -p "require('./package.json').version")
-          if [ "$current_version" != "$version" ]; then
-            npm version --no-git-tag-version "$version"
-          fi
-          cd ..
-
-          echo "Updated versions:"
-          grep "^version" Cargo.toml
-          grep "\"version\"" npm-package/package.json
-          grep "^version" pip-package/pyproject.toml
+      - name: Install Zig
+        run: brew install zig mingw-w64
 
       - name: Build and publish GitHub release assets
         uses: goreleaser/goreleaser-action@v6
@@ -171,19 +124,52 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  publish_crates:
+    name: Publish crates.io
+    needs: meta
+    if: needs.meta.outputs.crates_exists != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Publish to crates.io
-        if: steps.published.outputs.crates_exists != 'true'
-        run: |
-          cargo publish --allow-dirty --token ${{ secrets.CARGO_TOKEN }}
+        run: cargo publish --allow-dirty --token ${{ secrets.CARGO_TOKEN }}
+
+  publish_npm:
+    name: Publish npm
+    needs: meta
+    if: needs.meta.outputs.npm_exists != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "20"
+          registry-url: "https://registry.npmjs.org"
+
+      - name: Update npm
+        run: npm install -g npm@latest
 
       - name: Publish to npm
-        if: steps.published.outputs.npm_exists != 'true'
         env:
           NODE_AUTH_TOKEN: ""
         run: |
           unset NODE_AUTH_TOKEN
           cd npm-package
-          version="${{ steps.version.outputs.version }}"
+          version="${{ needs.meta.outputs.version }}"
           if [[ "$version" == *"-rc."* ]]; then
             npm_tag="beta"
           else
@@ -192,28 +178,33 @@ jobs:
 
           npm publish --provenance --access public --tag "$npm_tag"
 
+  publish_pypi:
+    name: Publish PyPI
+    needs: meta
+    if: needs.meta.outputs.pypi_exists != 'true'
+    runs-on: ubuntu-latest
+    environment: pypi
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.8"
+
       - name: Build Python package
         run: |
+          python -m pip install --upgrade pip
+          python -m pip install build
           cd pip-package
           python -m build
 
       - name: Publish to PyPI
-        if: steps.published.outputs.pypi_exists != 'true'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: pip-package/dist
-
-      - name: Verify publications
-        run: |
-          version="${{ steps.version.outputs.version }}"
-          python_version="${{ steps.version.outputs.python_version }}"
-
-          echo "✅ Published versions:"
-          if [ "${{ steps.published.outputs.crates_exists }}" = "true" ]; then echo "  Cargo: (already published)"; else echo "  Cargo: $version"; fi
-          if [ "${{ steps.published.outputs.npm_exists }}" = "true" ]; then echo "  npm: (already published)"; else echo "  npm: $version"; fi
-          if [ "${{ steps.published.outputs.pypi_exists }}" = "true" ]; then echo "  PyPI: (already published)"; else echo "  PyPI: $python_version"; fi
-          echo ""
-          echo "📦 Installation commands:"
-          echo "  cargo install gitfluff --version $version"
-          echo "  npm install -g gitfluff@$version"
-          echo "  uv tool install gitfluff==$python_version"
+          skip-existing: true
