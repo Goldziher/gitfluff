@@ -17,6 +17,7 @@ concurrency:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   publish:
@@ -58,7 +59,7 @@ jobs:
       - name: Install Python build tools
         run: |
           python -m pip install --upgrade pip
-          pip install build twine
+          pip install build
 
       - name: Extract version from tag
         id: version
@@ -81,6 +82,38 @@ jobs:
           echo "Git tag: $tag"
           echo "Cargo/npm version: $version"
           echo "Python version: $python_version"
+
+      - name: Detect already-published versions
+        id: published
+        run: |
+          version="${{ steps.version.outputs.version }}"
+          python_version="${{ steps.version.outputs.python_version }}"
+
+          crates_exists=false
+          if curl -fsS "https://crates.io/api/v1/crates/gitfluff/${version}" >/dev/null; then
+            crates_exists=true
+          fi
+
+          npm_exists=false
+          if npm view "gitfluff@${version}" version >/dev/null 2>&1; then
+            npm_exists=true
+          fi
+
+          pypi_exists=false
+          if curl -fsS "https://pypi.org/pypi/gitfluff/${python_version}/json" >/dev/null; then
+            pypi_exists=true
+          fi
+
+          {
+            echo "crates_exists=$crates_exists"
+            echo "npm_exists=$npm_exists"
+            echo "pypi_exists=$pypi_exists"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "Already published?"
+          echo "  crates.io: $crates_exists"
+          echo "  npm:       $npm_exists"
+          echo "  PyPI:      $pypi_exists"
 
       - name: Update package versions
         run: |
@@ -136,12 +169,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Publish to crates.io
+        if: steps.published.outputs.crates_exists != 'true'
         run: |
           cargo publish --allow-dirty --token ${{ secrets.CARGO_TOKEN }}
 
       - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        if: steps.published.outputs.npm_exists != 'true'
         run: |
           cd npm-package
           version="${{ steps.version.outputs.version }}"
@@ -151,7 +184,7 @@ jobs:
             npm_tag="latest"
           fi
 
-          npm publish --access public --tag "$npm_tag"
+          npm publish --provenance --access public --tag "$npm_tag"
 
       - name: Build Python package
         run: |
@@ -159,12 +192,10 @@ jobs:
           python -m build
 
       - name: Publish to PyPI
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          cd pip-package
-          twine upload dist/*
+        if: steps.published.outputs.pypi_exists != 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: pip-package/dist
 
       - name: Verify publications
         run: |
@@ -172,9 +203,9 @@ jobs:
           python_version="${{ steps.version.outputs.python_version }}"
 
           echo "✅ Published versions:"
-          echo "  Cargo: $version"
-          echo "  npm: $version"
-          echo "  PyPI: $python_version"
+          if [ "${{ steps.published.outputs.crates_exists }}" = "true" ]; then echo "  Cargo: (already published)"; else echo "  Cargo: $version"; fi
+          if [ "${{ steps.published.outputs.npm_exists }}" = "true" ]; then echo "  npm: (already published)"; else echo "  npm: $version"; fi
+          if [ "${{ steps.published.outputs.pypi_exists }}" = "true" ]; then echo "  PyPI: (already published)"; else echo "  PyPI: $python_version"; fi
           echo ""
           echo "📦 Installation commands:"
           echo "  cargo install gitfluff --version $version"
