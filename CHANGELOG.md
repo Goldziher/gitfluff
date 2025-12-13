@@ -8,6 +8,12 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.1] - 2025-12-13
+
+### Changed
+
+- Switched crates.io publishing in CI to Trusted Publishing (OIDC), removing the need for a long-lived `CARGO_TOKEN`.
+
 ## [0.6.0] - 2025-12-13
 
 ### Added
