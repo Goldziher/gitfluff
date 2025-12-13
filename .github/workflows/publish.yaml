@@ -148,7 +148,7 @@ jobs:
             exit 0
           fi
 
-          if rg -q "crate .* already exists" cargo-publish.err; then
+          if grep -Eq "crate .* already exists" cargo-publish.err; then
             echo "crate already published; skipping"
             exit 0
           fi
