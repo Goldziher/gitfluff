@@ -30,6 +30,18 @@ gitfluff lint .git/COMMIT_EDITMSG
 gitfluff lint .git/COMMIT_EDITMSG --write
 ```
 
+## Optional: fail after rewrite (recommended for hooks)
+
+Add a `.gitfluff.toml` to enable automatic cleanup and stop the commit if a rewrite happened:
+
+```toml
+preset = "conventional"
+write = true
+
+[rules]
+exit_nonzero_on_rewrite = true
+```
+
 ## Hook Integrations
 
 ### Native Git Hook
@@ -57,10 +69,11 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
+        # args: ["--write"]  # optional, or set `write = true` in .gitfluff.toml
         # args: ["--msg-pattern", "^JIRA-[0-9]+: .+"]  # optional regex override
 ```
 
@@ -93,9 +106,10 @@ No configuration is required—the default Conventional Commits rules apply imme
 
 ```toml
 preset = "conventional-body"  # optional preset override
+write = true
 
 [rules]
-write = true
+exit_nonzero_on_rewrite = true
 ```
 
 Any setting can be left out; omit the file entirely to keep defaults.

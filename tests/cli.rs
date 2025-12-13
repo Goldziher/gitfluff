@@ -135,6 +135,40 @@ fn lint_applies_cleanup_with_write_flag() {
 }
 
 #[test]
+fn lint_can_fail_after_rewrite_when_configured() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(
+        &msg_path,
+        "feat: add login\n\n🤖 Generated with Claude\n- Claude\nCo-Authored-By: Claude Sonnet 4.5\n<noreply@anthropic.com>\n",
+    );
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+write = true
+
+[rules]
+exit_nonzero_on_rewrite = true
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("rewritten"));
+
+    let rewritten = fs::read_to_string(&msg_path).unwrap();
+    assert_eq!(rewritten.trim_end(), "feat: add login");
+}
+
+#[test]
 fn lint_enforces_require_body_from_config() {
     let dir = tempdir().unwrap();
     let msg_path = dir.path().join("msg.txt");

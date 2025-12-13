@@ -4,6 +4,13 @@ use clap::{Args, Parser, Subcommand};
 
 use crate::hooks::HookKind;
 
+#[derive(Debug, Clone, Copy, clap::ValueEnum)]
+pub enum ColorMode {
+    Auto,
+    Always,
+    Never,
+}
+
 #[derive(Debug, Parser)]
 #[command(author, version, about, propagate_version = true)]
 pub struct Cli {
@@ -87,11 +94,19 @@ pub struct LintArgs {
     #[arg(long)]
     pub write: bool,
 
+    /// Control ANSI color output (auto uses TTY detection).
+    #[arg(long, value_enum, default_value = "auto")]
+    pub color: ColorMode,
+
     #[arg(long, conflicts_with = "require_body")]
     pub single_line: bool,
 
     #[arg(long, conflicts_with = "single_line")]
     pub require_body: bool,
+
+    /// Exit with code 1 if `--write` rewrote the message (even if it becomes valid).
+    #[arg(long)]
+    pub exit_nonzero_on_rewrite: bool,
 }
 
 #[derive(Debug, Subcommand)]

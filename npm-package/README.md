@@ -15,7 +15,7 @@ npm install -g gitfluff
 **Run without installation:**
 
 ```bash
-npx gitfluff@0.5.0 --version
+npx gitfluff@0.6.0 --version
 ```
 
 **Lint a commit message:**
@@ -28,6 +28,18 @@ gitfluff lint .git/COMMIT_EDITMSG
 
 ```bash
 gitfluff lint .git/COMMIT_EDITMSG --write
+```
+
+## Optional: fail after rewrite (recommended for hooks)
+
+Add a `.gitfluff.toml` to enable automatic cleanup and stop the commit if a rewrite happened:
+
+```toml
+preset = "conventional"
+write = true
+
+[rules]
+exit_nonzero_on_rewrite = true
 ```
 
 ## Hook Integrations
@@ -57,10 +69,11 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
+        # args: ["--write"]  # optional, or set `write = true` in .gitfluff.toml
         # args: ["--msg-pattern", "^JIRA-[0-9]+: .+"]  # optional regex override
 ```
 

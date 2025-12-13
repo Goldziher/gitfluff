@@ -20,6 +20,7 @@ pub struct RulesConfig {
     pub cleanup: Vec<CleanupRuleConfig>,
     pub single_line: Option<bool>,
     pub require_body: Option<bool>,
+    pub exit_nonzero_on_rewrite: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

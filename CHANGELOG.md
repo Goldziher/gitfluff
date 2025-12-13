@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.6.0] - 2025-12-13
+
+### Added
+
+- Color-aware, consistently formatted output optimized for hook runners.
+- New `rules.exit_nonzero_on_rewrite` option to control whether `--write` should
+  stop the commit after rewriting the message.
+
 ## [0.5.0] - 2025-12-13
 
 ### Added

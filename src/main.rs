@@ -5,13 +5,14 @@ mod lint;
 mod presets;
 
 use std::fs;
+use std::io::IsTerminal;
 use std::io::{self, Read, Write};
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, anyhow};
 use clap::Parser;
 
-use crate::cli::{Cli, Commands, HookCommand, HookInstallArgs, LintArgs};
+use crate::cli::{Cli, ColorMode, Commands, HookCommand, HookInstallArgs, LintArgs};
 use crate::config::load_config;
 use crate::hooks::install_hook;
 use crate::lint::{
@@ -70,7 +71,7 @@ fn main() {
     let exit_code = match run() {
         Ok(code) => code,
         Err(err) => {
-            eprintln!("gitfluff: {}", format_error(&err));
+            eprintln!("gitfluff: error: {}", format_error(&err));
             2
         }
     };
@@ -106,6 +107,7 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         return Ok(0);
     }
 
+    let mut reporter = Reporter::new(args.color);
     let loaded_config = load_config(args.config.as_deref(), &cwd)?;
 
     let preset_name = args
@@ -239,6 +241,14 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         false
     };
 
+    let exit_nonzero_on_rewrite = if args.exit_nonzero_on_rewrite {
+        true
+    } else if let Some((_, cfg)) = &loaded_config {
+        cfg.rules.exit_nonzero_on_rewrite.unwrap_or(false)
+    } else {
+        false
+    };
+
     options.body_policy = body_policy;
 
     for (pattern, message) in AI_EXCLUDE_RULES {
@@ -257,20 +267,19 @@ fn run_lint(args: LintArgs) -> Result<i32> {
 
     let outcome = lint_message(&message_data.text, &options);
 
-    let mut stderr = io::stderr().lock();
     for violation in &outcome.violations_before {
-        writeln!(stderr, "gitfluff: {}", violation)?;
+        reporter.error(violation)?;
     }
 
     if outcome.cleanup_summaries.is_empty() {
         // nothing to do
     } else if write_requested {
         for summary in &outcome.cleanup_summaries {
-            writeln!(stderr, "gitfluff: applied cleanup - {}", summary)?;
+            reporter.info(format!("applied cleanup: {summary}"))?;
         }
     } else {
         for summary in &outcome.cleanup_summaries {
-            writeln!(stderr, "gitfluff: cleanup available - {}", summary)?;
+            reporter.info(format!("cleanup available: {summary}"))?;
         }
     }
 
@@ -285,9 +294,11 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         && !outcome.violations_after.is_empty()
     {
         for violation in &outcome.violations_after {
-            writeln!(stderr, "gitfluff: {}", violation)?;
+            reporter.error(violation)?;
         }
     }
+
+    let did_rewrite = write_requested && outcome.cleaned_message != message_data.text;
 
     if write_requested {
         apply_write(&message_data, &outcome.cleaned_message)?;
@@ -296,7 +307,13 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     }
 
     if active_violations.is_empty() {
-        Ok(0)
+        if did_rewrite && exit_nonzero_on_rewrite {
+            reporter
+                .info("commit message was rewritten; please re-run the commit to review changes")?;
+            Ok(1)
+        } else {
+            Ok(0)
+        }
     } else {
         Ok(1)
     }
@@ -406,6 +423,72 @@ fn format_error(err: &anyhow::Error) -> String {
 fn hook_label(kind: crate::hooks::HookKind) -> &'static str {
     match kind {
         crate::hooks::HookKind::CommitMsg => "commit-msg",
+    }
+}
+
+struct Reporter {
+    color: bool,
+    stderr: io::Stderr,
+}
+
+impl Reporter {
+    fn new(mode: ColorMode) -> Self {
+        let is_tty = io::stderr().is_terminal();
+        let color = match mode {
+            ColorMode::Auto => is_tty,
+            ColorMode::Always => true,
+            ColorMode::Never => false,
+        };
+
+        Self {
+            color,
+            stderr: io::stderr(),
+        }
+    }
+
+    fn error(&mut self, msg: impl AsRef<str>) -> io::Result<()> {
+        self.write_line("error", msg.as_ref(), Some(Ansi::Red))
+    }
+
+    fn info(&mut self, msg: impl AsRef<str>) -> io::Result<()> {
+        self.write_line("info", msg.as_ref(), Some(Ansi::Cyan))
+    }
+
+    fn write_line(&mut self, level: &str, msg: &str, color: Option<Ansi>) -> io::Result<()> {
+        let mut stderr = self.stderr.lock();
+        if self.color {
+            if let Some(color) = color {
+                writeln!(
+                    stderr,
+                    "gitfluff: {}{}{}: {}",
+                    color.code(),
+                    level,
+                    Ansi::Reset.code(),
+                    msg
+                )
+            } else {
+                writeln!(stderr, "gitfluff: {level}: {msg}")
+            }
+        } else {
+            writeln!(stderr, "gitfluff: {level}: {msg}")
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum Ansi {
+    Red,
+    Cyan,
+    Reset,
+}
+
+impl Ansi {
+    fn code(self) -> &'static str {
+        match self {
+            Ansi::Red => "\x1b[31m",
+            Ansi::Cyan => "\x1b[36m",
+            Ansi::Reset => "\x1b[0m",
+        }
     }
 }
 

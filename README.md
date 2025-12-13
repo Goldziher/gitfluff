@@ -37,7 +37,7 @@ npm install -g gitfluff
 ### npx (no install)
 
 ```bash
-npx gitfluff@0.5.0 --version
+npx gitfluff@0.6.0 --version
 ```
 
 ### uv (Python)
@@ -64,6 +64,21 @@ Automatically clean up matching patterns (e.g. stripped AI banners) and write th
 
 ```bash
 gitfluff lint .git/COMMIT_EDITMSG --write
+```
+
+### Optional: fail after rewrite (recommended for hooks)
+
+When `--write` (or `write = true` in `.gitfluff.toml`) rewrites the commit message, you can choose
+whether the hook should allow the commit (`exit 0`) or stop so you can review (`exit 1`).
+
+Create a `.gitfluff.toml` in your repo:
+
+```toml
+preset = "conventional"
+write = true
+
+[rules]
+exit_nonzero_on_rewrite = true
 ```
 
 Lint strings from other tools or scripts:
@@ -115,13 +130,13 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
         # args: ["--msg-pattern", "^JIRA-[0-9]+: .+"]  # optional regex override
         # args: ["--cleanup-pattern", "^TEMP: ", "--cleanup-replacement", "feat: "]
-        # args: ["--write"]  # optional cleanup in place
+        # args: ["--write"]  # optional, or set `write = true` in .gitfluff.toml
 ```
 
 Then install the hooks:
@@ -140,7 +155,7 @@ If part of your team prefers `pre-commit` while others rely on Lefthook (or you 
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.5.0
+    rev: v0.6.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
@@ -159,7 +174,7 @@ repos:
 commit-msg:
   commands:
     gitfluff:
-      run: npx gitfluff lint --msg-pattern '^JIRA-[0-9]+: .+$' --cleanup-pattern '^TEMP: ' --cleanup-replacement 'feat: ' --write {1}
+      run: npx gitfluff lint {1}
 ```
 
 This guarantees every commit message flows through the same lint/cleanup rules no matter which hook runner is active.
@@ -271,7 +286,7 @@ Violations produce actionable messages so you can decide when to teach the linte
 
 ## Project Status
 
-- Binaries: published for macOS (arm64/x86_64), Linux (x86_64, aarch64), Windows (x86_64, i686)
+- Binaries: published for macOS (arm64/x86_64), Linux (x86_64, aarch64), Windows (x86_64)
 - Registry packages: crates.io, npm, PyPI
 - Homebrew tap: `goldziher/tap`
 
