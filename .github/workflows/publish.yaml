@@ -140,7 +140,21 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Publish to crates.io
-        run: cargo publish --allow-dirty --token ${{ secrets.CARGO_TOKEN }}
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_TOKEN }}
+        run: |
+          set -euo pipefail
+          if cargo publish --allow-dirty 2>cargo-publish.err; then
+            exit 0
+          fi
+
+          if rg -q "crate .* already exists" cargo-publish.err; then
+            echo "crate already published; skipping"
+            exit 0
+          fi
+
+          cat cargo-publish.err >&2
+          exit 1
 
   publish_npm:
     name: Publish npm
