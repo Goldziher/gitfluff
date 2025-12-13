@@ -49,7 +49,6 @@ jobs:
         uses: actions/setup-node@v5
         with:
           node-version: "18"
-          registry-url: "https://registry.npmjs.org"
 
       - name: Setup Python
         uses: actions/setup-python@v6
@@ -175,7 +174,10 @@ jobs:
 
       - name: Publish to npm
         if: steps.published.outputs.npm_exists != 'true'
+        env:
+          NODE_AUTH_TOKEN: ""
         run: |
+          unset NODE_AUTH_TOKEN
           cd npm-package
           version="${{ steps.version.outputs.version }}"
           if [[ "$version" == *"-rc."* ]]; then
