@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.0] - 2025-12-14
+
+### Added
+
+- Commitlint parity for Conventional Commits validation, including warnings vs errors for leading blank lines and max-length checks for header/body/footer.
+- `--write` now applies safe autofixes for common formatting issues (missing blank line separators, trailing whitespace, excessive blank lines).
+
+### Changed
+
+- Conventional Commit parsing is more permissive and no longer misclassifies body bullet points (e.g. `- Note: ...`) as footer entries.
+- Output formatting is more consistent: multiline errors/warnings are prefixed and colorized uniformly.
+
 ## [0.6.1] - 2025-12-13
 
 ### Changed

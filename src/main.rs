@@ -71,7 +71,8 @@ fn main() {
     let exit_code = match run() {
         Ok(code) => code,
         Err(err) => {
-            eprintln!("gitfluff: error: {}", format_error(&err));
+            let mut reporter = Reporter::new(ColorMode::Auto);
+            let _ = reporter.error(format_error(&err));
             2
         }
     };
@@ -92,7 +93,7 @@ fn run_hook_install(args: HookInstallArgs) -> Result<i32> {
     let cwd = std::env::current_dir().context("failed to discover current directory")?;
     let path = install_hook(&cwd, args.kind, args.write, args.force)?;
     println!(
-        "Installed {} hook at {}",
+        "gitfluff: info: Installed {} hook at {}",
         hook_label(args.kind),
         path.display()
     );
@@ -241,6 +242,8 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         false
     };
 
+    options.autofix = write_requested;
+
     let exit_nonzero_on_rewrite = if args.exit_nonzero_on_rewrite {
         true
     } else if let Some((_, cfg)) = &loaded_config {
@@ -267,10 +270,6 @@ fn run_lint(args: LintArgs) -> Result<i32> {
 
     let outcome = lint_message(&message_data.text, &options);
 
-    for violation in &outcome.violations_before {
-        reporter.error(violation)?;
-    }
-
     if outcome.cleanup_summaries.is_empty() {
         // nothing to do
     } else if write_requested {
@@ -284,19 +283,34 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     }
 
     let active_violations = if write_requested {
-        &outcome.violations_after
-    } else {
-        &outcome.violations_before
-    };
+        for fixed in outcome
+            .violations_before
+            .iter()
+            .filter(|msg| !outcome.violations_after.contains(msg))
+        {
+            reporter.info(format!("fixed: {fixed}"))?;
+        }
 
-    if write_requested
-        && outcome.violations_before.is_empty()
-        && !outcome.violations_after.is_empty()
-    {
+        for warning in &outcome.warnings_after {
+            reporter.warn(warning)?;
+        }
+
         for violation in &outcome.violations_after {
             reporter.error(violation)?;
         }
-    }
+
+        &outcome.violations_after
+    } else {
+        for warning in &outcome.warnings_before {
+            reporter.warn(warning)?;
+        }
+
+        for violation in &outcome.violations_before {
+            reporter.error(violation)?;
+        }
+
+        &outcome.violations_before
+    };
 
     let did_rewrite = write_requested && outcome.cleaned_message != message_data.text;
 
@@ -454,30 +468,38 @@ impl Reporter {
         self.write_line("info", msg.as_ref(), Some(Ansi::Cyan))
     }
 
+    fn warn(&mut self, msg: impl AsRef<str>) -> io::Result<()> {
+        self.write_line("warn", msg.as_ref(), Some(Ansi::Yellow))
+    }
+
     fn write_line(&mut self, level: &str, msg: &str, color: Option<Ansi>) -> io::Result<()> {
         let mut stderr = self.stderr.lock();
-        if self.color {
-            if let Some(color) = color {
-                writeln!(
-                    stderr,
-                    "gitfluff: {}{}{}: {}",
-                    color.code(),
-                    level,
-                    Ansi::Reset.code(),
-                    msg
-                )
+        for line in msg.split('\n') {
+            if self.color {
+                if let Some(color) = color {
+                    writeln!(
+                        stderr,
+                        "gitfluff: {}{}{}: {}",
+                        color.code(),
+                        level,
+                        Ansi::Reset.code(),
+                        line
+                    )?;
+                } else {
+                    writeln!(stderr, "gitfluff: {level}: {line}")?;
+                }
             } else {
-                writeln!(stderr, "gitfluff: {level}: {msg}")
+                writeln!(stderr, "gitfluff: {level}: {line}")?;
             }
-        } else {
-            writeln!(stderr, "gitfluff: {level}: {msg}")
         }
+        Ok(())
     }
 }
 
 #[derive(Clone, Copy)]
 enum Ansi {
     Red,
+    Yellow,
     Cyan,
     Reset,
 }
@@ -486,6 +508,7 @@ impl Ansi {
     fn code(self) -> &'static str {
         match self {
             Ansi::Red => "\x1b[31m",
+            Ansi::Yellow => "\x1b[33m",
             Ansi::Cyan => "\x1b[36m",
             Ansi::Reset => "\x1b[0m",
         }

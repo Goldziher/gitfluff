@@ -37,7 +37,7 @@ npm install -g gitfluff
 ### npx (no install)
 
 ```bash
-npx gitfluff@0.6.1 --version
+npx gitfluff@0.7.0 --version
 ```
 
 ### uv (Python)
@@ -65,6 +65,9 @@ Automatically clean up matching patterns (e.g. stripped AI banners) and write th
 ```bash
 gitfluff lint .git/COMMIT_EDITMSG --write
 ```
+
+When `--write` is enabled, `gitfluff` also applies a small set of safe, style-only autofixes
+(trailing whitespace, excessive blank lines, and Conventional Commits blank-line separators).
 
 ### Optional: fail after rewrite (recommended for hooks)
 
@@ -130,7 +133,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.6.1
+    rev: v0.7.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
@@ -155,7 +158,7 @@ If part of your team prefers `pre-commit` while others rely on Lefthook (or you 
 # .pre-commit-config.yaml
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.6.1
+    rev: v0.7.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]

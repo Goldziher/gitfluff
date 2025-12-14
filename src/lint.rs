@@ -37,31 +37,46 @@ pub struct LintOptions {
     pub cleanup_rules: Vec<CleanupRule>,
     pub body_policy: BodyPolicy,
     pub enforce_conventional_spec: bool,
+    pub autofix: bool,
 }
 
 #[derive(Debug)]
 pub struct LintOutcome {
     pub violations_before: Vec<String>,
     pub violations_after: Vec<String>,
+    pub warnings_before: Vec<String>,
+    pub warnings_after: Vec<String>,
     pub cleaned_message: String,
     pub cleanup_summaries: Vec<String>,
 }
 
 pub fn lint_message(message: &str, options: &LintOptions) -> LintOutcome {
-    let violations_before = evaluate_message(message, options);
-    let (cleaned_message, cleanup_summaries) = apply_cleanup(message, &options.cleanup_rules);
-    let violations_after = evaluate_message(&cleaned_message, options);
+    let (violations_before, warnings_before) = evaluate_message(message, options);
+    let (mut cleaned_message, mut cleanup_summaries) =
+        apply_cleanup(message, &options.cleanup_rules);
+    if options.autofix {
+        let (formatted, mut format_summaries) =
+            apply_autofix(&cleaned_message, options.enforce_conventional_spec);
+        if formatted != cleaned_message {
+            cleaned_message = formatted;
+        }
+        cleanup_summaries.append(&mut format_summaries);
+    }
+    let (violations_after, warnings_after) = evaluate_message(&cleaned_message, options);
 
     LintOutcome {
         violations_before,
         violations_after,
+        warnings_before,
+        warnings_after,
         cleaned_message,
         cleanup_summaries,
     }
 }
 
-fn evaluate_message(message: &str, options: &LintOptions) -> Vec<String> {
+fn evaluate_message(message: &str, options: &LintOptions) -> (Vec<String>, Vec<String>) {
     let mut violations = Vec::new();
+    let mut warnings = Vec::new();
 
     for exclude in &options.exclude_rules {
         if exclude.regex.is_match(message) {
@@ -78,10 +93,11 @@ fn evaluate_message(message: &str, options: &LintOptions) -> Vec<String> {
     let header_line = message.lines().next().unwrap_or("");
     if header_line.trim().is_empty() {
         violations.push("Commit message header must not be empty".to_string());
-        return violations;
+        return (violations, warnings);
     }
 
-    if let Some(pattern) = &options.message_pattern
+    if !options.enforce_conventional_spec
+        && let Some(pattern) = &options.message_pattern
         && !pattern.regex.is_match(header_line.trim())
     {
         let desc = pattern
@@ -92,12 +108,15 @@ fn evaluate_message(message: &str, options: &LintOptions) -> Vec<String> {
     }
 
     if options.enforce_conventional_spec {
-        violations.extend(validate_conventional_spec(message, options.body_policy));
+        let (mut errs, mut warns) =
+            validate_conventional_commitlint_rules(message, options.body_policy);
+        violations.append(&mut errs);
+        warnings.append(&mut warns);
     } else {
         violations.extend(validate_body_policy(message, options.body_policy));
     }
 
-    violations
+    (violations, warnings)
 }
 
 fn apply_cleanup(input: &str, rules: &[CleanupRule]) -> (String, Vec<String>) {
@@ -120,6 +139,81 @@ fn apply_cleanup(input: &str, rules: &[CleanupRule]) -> (String, Vec<String>) {
     }
 
     (current, summaries)
+}
+
+fn apply_autofix(input: &str, enforce_conventional: bool) -> (String, Vec<String>) {
+    let mut current = input.replace("\r\n", "\n").replace('\r', "\n");
+    let mut summaries = Vec::new();
+
+    let trimmed_trailing = current
+        .lines()
+        .map(|line| line.trim_end_matches([' ', '\t']))
+        .collect::<Vec<_>>()
+        .join("\n");
+    if trimmed_trailing != current {
+        current = trimmed_trailing;
+        summaries.push("Trim trailing whitespace".to_string());
+    }
+
+    let trimmed_edges = current.trim_matches('\n').to_string();
+    if trimmed_edges != current {
+        current = trimmed_edges;
+        summaries.push("Trim leading/trailing blank lines".to_string());
+    }
+
+    let collapsed = Regex::new("\n{3,}")
+        .expect("valid regex")
+        .replace_all(&current, "\n\n")
+        .to_string();
+    if collapsed != current {
+        current = collapsed;
+        summaries.push("Collapse excessive blank lines".to_string());
+    }
+
+    if enforce_conventional {
+        let mut lines: Vec<&str> = current.split('\n').collect();
+        if !lines.is_empty() {
+            let has_content_after_header = lines.iter().skip(1).any(|line| !line.trim().is_empty());
+            if has_content_after_header {
+                if lines.get(1).is_some_and(|line| !line.trim().is_empty()) {
+                    lines.insert(1, "");
+                    summaries.push("Insert blank line before body".to_string());
+                }
+
+                if let Some(footer_start) = detect_footer_start(&lines)
+                    && footer_start > 0
+                    && lines
+                        .get(footer_start - 1)
+                        .is_some_and(|line| !line.trim().is_empty())
+                {
+                    lines.insert(footer_start, "");
+                    summaries.push("Insert blank line before footers".to_string());
+                }
+            }
+        }
+
+        let rebuilt = lines.join("\n");
+        if rebuilt != current {
+            current = rebuilt;
+        }
+    }
+
+    (current, summaries)
+}
+
+fn detect_footer_start(lines: &[&str]) -> Option<usize> {
+    let mut end = lines.len();
+    while end > 0 && lines[end - 1].trim().is_empty() {
+        end -= 1;
+    }
+    if end == 0 {
+        return None;
+    }
+    // Footers can span multiple lines (e.g. BREAKING CHANGE notes). Treat the footer section as the
+    // suffix of the message that contains at least one recognizable footer token line.
+    (0..end)
+        .rev()
+        .find(|&idx| parse_footer_line(lines[idx].trim_end_matches('\r')).is_some())
 }
 
 pub fn build_message_pattern(pattern: &str, description: Option<String>) -> Result<MessagePattern> {
@@ -198,211 +292,172 @@ fn validate_body_policy(message: &str, policy: BodyPolicy) -> Vec<String> {
     }
 }
 
-fn validate_conventional_spec(message: &str, policy: BodyPolicy) -> Vec<String> {
-    let mut violations = Vec::new();
-    let mut lines = message.lines();
-    let header_line = lines.next().unwrap_or("");
-
-    if let Err(err) = parse_header(header_line) {
-        violations.push(err);
-        return violations;
+fn parse_footer_line(line: &str) -> Option<FooterEntry> {
+    let line = line.trim_start();
+    if line.trim().is_empty() {
+        return None;
     }
 
-    let remaining: Vec<&str> = lines.collect();
-    let sections = parse_body_and_footers(&remaining, &mut violations);
+    let (idx, sep_len) = if let Some(idx) = line.find(": ") {
+        (idx, 2)
+    } else if let Some(idx) = line.find(" #") {
+        (idx, 2)
+    } else {
+        return None;
+    };
 
-    if policy == BodyPolicy::RequireBody && !sections.body_present {
-        violations.push("Commit message must include a body after a blank line".to_string());
+    if idx == 0 {
+        return None;
     }
 
-    violations.extend(analyze_footers(&sections.footers));
+    let token = line[..idx].trim().to_string();
+    if token.is_empty() {
+        return None;
+    }
 
-    for footer in &sections.footers {
-        let normalized = footer.token.replace('-', " ");
-        if normalized.eq_ignore_ascii_case("BREAKING CHANGE") {
+    let normalized = token.replace('-', " ");
+    if !normalized.eq_ignore_ascii_case("BREAKING CHANGE") {
+        // Only allow spec-shaped tokens so body text like `- Note: ...` doesn't get
+        // misclassified as a footer entry.
+        if !token.chars().all(|c| c.is_ascii_alphanumeric() || c == '-')
+            || token.chars().any(|c| c.is_whitespace())
+        {
+            return None;
+        }
+    }
+
+    let value = line[(idx + sep_len)..].to_string();
+    Some(FooterEntry { token, value })
+}
+
+fn validate_conventional_commitlint_rules(
+    message: &str,
+    policy: BodyPolicy,
+) -> (Vec<String>, Vec<String>) {
+    let mut errors = Vec::new();
+    let mut warnings = Vec::new();
+
+    let normalized = message.replace("\r\n", "\n").replace('\r', "\n");
+    let mut lines = normalized.split('\n');
+    let header = lines.next().unwrap_or("");
+    let rest: Vec<&str> = lines.collect();
+
+    let header_len = header.chars().count();
+    if header_len > 100 {
+        errors.push(format!(
+            "header must not be longer than 100 characters, current length is {header_len}"
+        ));
+    }
+
+    let header_re =
+        Regex::new(r"^(\w*)(?:\((.*)\))?!?: (.*)$").expect("valid conventional header regex");
+    let (ty, subject) = header_re
+        .captures(header)
+        .map(|caps| {
+            (
+                caps.get(1).map(|m| m.as_str()).unwrap_or(""),
+                caps.get(3).map(|m| m.as_str()).unwrap_or(""),
+            )
+        })
+        .unwrap_or(("", ""));
+
+    let allowed_types = [
+        "build", "chore", "ci", "docs", "feat", "fix", "perf", "refactor", "revert", "style",
+        "test",
+    ];
+
+    if subject.trim().is_empty() {
+        errors.push("subject may not be empty".to_string());
+    } else {
+        let subject_trimmed = subject.trim();
+        if subject_trimmed.ends_with('.') {
+            errors.push("subject may not end with full stop".to_string());
+        }
+        if is_disallowed_subject_case(subject_trimmed) {
+            errors.push(
+                "subject must not be sentence-case, start-case, pascal-case, upper-case"
+                    .to_string(),
+            );
+        }
+    }
+
+    if ty.trim().is_empty() {
+        errors.push("type may not be empty".to_string());
+    } else {
+        if ty != ty.to_lowercase() {
+            errors.push("type must be lower-case".to_string());
+        }
+        if !allowed_types.contains(&ty) {
+            errors.push(format!(
+                "type must be one of [{}]",
+                allowed_types.join(", ")
+            ));
+        }
+    }
+
+    let (body_lines, footer_lines, footer_token_index) = split_body_and_footer(&rest);
+
+    if policy == BodyPolicy::RequireBody {
+        let body_has_content = body_lines.iter().any(|line| !line.trim().is_empty());
+        if !body_has_content {
+            errors.push("Commit message must include a body after a blank line".to_string());
+        }
+    }
+
+    let body_has_content = body_lines.iter().any(|line| !line.trim().is_empty());
+    if body_has_content && rest.first().is_some_and(|line| !line.trim().is_empty()) {
+        warnings.push("body must have leading blank line".to_string());
+    }
+
+    if !footer_lines.is_empty() {
+        let has_leading_blank = footer_token_index.is_some_and(|idx| {
+            idx > 0 && rest.get(idx - 1).is_some_and(|line| line.trim().is_empty())
+        });
+        if !has_leading_blank {
+            warnings.push("footer must have leading blank line".to_string());
+        }
+    }
+
+    if body_lines
+        .iter()
+        .filter(|line| !line.trim().is_empty())
+        .any(|line| line.chars().count() > 100)
+    {
+        errors.push("body's lines must not be longer than 100 characters".to_string());
+    }
+
+    if footer_lines
+        .iter()
+        .filter(|line| !line.trim().is_empty())
+        .any(|line| line.chars().count() > 100)
+    {
+        errors.push("footer's lines must not be longer than 100 characters".to_string());
+    }
+
+    let footers = parse_footer_entries(&footer_lines);
+    for footer in &footers {
+        let token_trimmed = footer.token.trim();
+        if token_trimmed.is_empty() {
+            errors.push("Footer token must not be empty".to_string());
+            continue;
+        }
+
+        let normalized_token = token_trimmed.replace('-', " ");
+        if normalized_token.eq_ignore_ascii_case("BREAKING CHANGE") {
             if footer.token != "BREAKING CHANGE" && footer.token != "BREAKING-CHANGE" {
-                violations.push(
+                errors.push(
                     "BREAKING CHANGE footer token must be uppercase (BREAKING CHANGE or BREAKING-CHANGE)"
                         .to_string(),
                 );
             }
             if footer.value.trim().is_empty() {
-                violations.push("BREAKING CHANGE footer must include a description".to_string());
+                errors.push("BREAKING CHANGE footer must include a description".to_string());
             }
-        }
-    }
-
-    violations
-}
-
-fn parse_header(header: &str) -> Result<(), String> {
-    let colon_index = header.find(':').ok_or_else(|| {
-        "Commit message header must look like `type: description` (optional `(scope)` and/or `!`)".to_string()
-    })?;
-
-    if !header[colon_index..].starts_with(": ") {
-        return Err(
-            "Commit message header must use `type: description` with a colon and space".to_string(),
-        );
-    }
-
-    if colon_index == 0 {
-        return Err("Commit message type must not be empty".to_string());
-    }
-
-    let description = &header[(colon_index + 2)..];
-    if description.trim().is_empty() {
-        return Err("Commit message description must not be empty".to_string());
-    }
-
-    let mut prefix = &header[..colon_index];
-    let breaking_by_bang = if prefix.ends_with('!') {
-        prefix = &prefix[..prefix.len() - 1];
-        true
-    } else {
-        false
-    };
-
-    let mut scope = None;
-    if let Some(scope_start) = prefix.find('(') {
-        if !prefix.ends_with(')') {
-            return Err("Commit scope, when present, must be wrapped in parentheses".to_string());
-        }
-        let raw_scope = &prefix[(scope_start + 1)..(prefix.len() - 1)];
-        if raw_scope.trim().is_empty() {
-            return Err("Commit scope must not be empty".to_string());
-        }
-        scope = Some(raw_scope.to_string());
-        prefix = &prefix[..scope_start];
-    }
-
-    if prefix.trim().is_empty() {
-        return Err("Commit message type must not be empty".to_string());
-    }
-
-    if !prefix
-        .chars()
-        .all(|c| c.is_ascii_alphanumeric() || c == '_')
-    {
-        return Err(
-            "Commit message type must be a single word (letters, numbers, or underscore)"
-                .to_string(),
-        );
-    }
-
-    let _commit_type = prefix.to_lowercase();
-    let _scope = scope;
-    let _breaking = breaking_by_bang;
-    let _description = description;
-
-    Ok(())
-}
-
-struct Sections {
-    body_present: bool,
-    footers: Vec<FooterEntry>,
-}
-
-fn parse_body_and_footers(rest_lines: &[&str], violations: &mut Vec<String>) -> Sections {
-    let mut body_present = false;
-    let mut prev_blank = false;
-    let mut current_footer: Option<FooterEntry> = None;
-    let mut footers = Vec::new();
-
-    for raw_line in rest_lines {
-        let line = raw_line.trim_end_matches('\r');
-        let is_blank = line.trim().is_empty();
-
-        if let Some(footer) = current_footer.as_mut() {
-            if is_blank {
-                if !footer.value.is_empty() {
-                    footer.value.push('\n');
-                }
-                prev_blank = true;
-                continue;
-            }
-            if let Some(new_footer) = parse_footer_line(line) {
-                footers.push(current_footer.take().unwrap());
-                current_footer = Some(new_footer);
-                prev_blank = false;
-                continue;
-            }
-
-            if !footer.value.is_empty() {
-                footer.value.push('\n');
-            }
-            footer.value.push_str(line);
-            prev_blank = false;
-            continue;
-        }
-
-        if is_blank {
-            prev_blank = true;
-            continue;
-        }
-
-        if let Some(new_footer) = parse_footer_line(line) {
-            if !prev_blank {
-                violations.push(
-                    "Footers must be separated from the summary/body by a blank line".to_string(),
-                );
-            }
-            current_footer = Some(new_footer);
-            prev_blank = false;
-            continue;
-        }
-
-        if !body_present && !prev_blank {
-            violations.push("Body must begin with a blank line after the description".to_string());
-        }
-
-        body_present = true;
-        prev_blank = false;
-    }
-
-    if let Some(footer) = current_footer.take() {
-        footers.push(footer);
-    }
-
-    Sections {
-        body_present,
-        footers,
-    }
-}
-
-fn parse_footer_line(line: &str) -> Option<FooterEntry> {
-    if let Some(idx) = line.find(": ") {
-        let token = line[..idx].to_string();
-        let value = line[(idx + 2)..].to_string();
-        Some(FooterEntry { token, value })
-    } else if let Some(idx) = line.find(" #") {
-        let token = line[..idx].to_string();
-        let value = line[(idx + 2)..].to_string();
-        Some(FooterEntry { token, value })
-    } else {
-        None
-    }
-}
-
-fn analyze_footers(footers: &[FooterEntry]) -> Vec<String> {
-    let mut violations = Vec::new();
-
-    for footer in footers {
-        let token_trimmed = footer.token.trim();
-        if token_trimmed.is_empty() {
-            violations.push("Footer token must not be empty".to_string());
-            continue;
-        }
-
-        let normalized = token_trimmed.replace('-', " ");
-
-        if normalized.eq_ignore_ascii_case("BREAKING CHANGE") {
-            // handled separately in caller
             continue;
         }
 
         if token_trimmed.chars().any(|c| c.is_whitespace()) {
-            violations.push(format!(
+            errors.push(format!(
                 "Footer token `{}` must use hyphen in place of whitespace",
                 token_trimmed
             ));
@@ -412,18 +467,175 @@ fn analyze_footers(footers: &[FooterEntry]) -> Vec<String> {
             .chars()
             .all(|c| c.is_ascii_alphanumeric() || c == '-')
         {
-            violations.push(format!(
+            errors.push(format!(
                 "Footer token `{}` must use alphanumeric characters or hyphen",
                 token_trimmed
             ));
         }
     }
 
-    violations
+    (errors, warnings)
+}
+
+fn split_body_and_footer<'a>(
+    rest_lines: &'a [&'a str],
+) -> (Vec<&'a str>, Vec<&'a str>, Option<usize>) {
+    let mut end = rest_lines.len();
+    while end > 0 && rest_lines[end - 1].trim().is_empty() {
+        end -= 1;
+    }
+    let rest_lines = &rest_lines[..end];
+
+    let footer_start = detect_footer_start(rest_lines);
+    let (body, footer) = match footer_start {
+        Some(start) => (rest_lines[..start].to_vec(), rest_lines[start..].to_vec()),
+        None => (rest_lines.to_vec(), Vec::new()),
+    };
+    (body, footer, footer_start)
+}
+
+fn parse_footer_entries(lines: &[&str]) -> Vec<FooterEntry> {
+    let mut footers = Vec::new();
+    let mut current: Option<FooterEntry> = None;
+
+    for raw_line in lines {
+        let line = raw_line.trim_end_matches('\r');
+        if line.trim().is_empty() {
+            if let Some(footer) = current.as_mut()
+                && !footer.value.is_empty()
+            {
+                footer.value.push('\n');
+            }
+            continue;
+        }
+
+        if let Some(entry) = parse_footer_line(line) {
+            if let Some(existing) = current.take() {
+                footers.push(existing);
+            }
+            current = Some(entry);
+            continue;
+        }
+
+        if let Some(footer) = current.as_mut() {
+            if !footer.value.is_empty() {
+                footer.value.push('\n');
+            }
+            footer.value.push_str(line);
+        } else {
+            return Vec::new();
+        }
+    }
+
+    if let Some(existing) = current.take() {
+        footers.push(existing);
+    }
+
+    footers
+}
+
+fn is_disallowed_subject_case(subject: &str) -> bool {
+    is_upper_case(subject)
+        || is_pascal_case(subject)
+        || is_sentence_case(subject)
+        || is_start_case(subject)
+}
+
+fn is_upper_case(subject: &str) -> bool {
+    let mut saw_alpha = false;
+    for c in subject.chars() {
+        if c.is_ascii_alphabetic() {
+            saw_alpha = true;
+            if c.is_ascii_lowercase() {
+                return false;
+            }
+        }
+    }
+    saw_alpha
+}
+
+fn is_pascal_case(subject: &str) -> bool {
+    if subject.contains(char::is_whitespace) {
+        return false;
+    }
+    let mut chars = subject.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !first.is_ascii_uppercase() {
+        return false;
+    }
+    let mut saw_lower = false;
+    let mut saw_upper = true;
+    for c in chars {
+        if c.is_ascii_uppercase() {
+            saw_upper = true;
+        } else if c.is_ascii_lowercase() {
+            saw_lower = true;
+        } else if !c.is_ascii_digit() && c != '_' && c != '-' {
+            return false;
+        }
+    }
+    saw_lower && saw_upper
+}
+
+fn is_sentence_case(subject: &str) -> bool {
+    let words: Vec<&str> = subject.split_whitespace().collect();
+    if words.len() < 2 {
+        return false;
+    }
+    let first = words[0];
+    let first_char = first.chars().find(|c| c.is_ascii_alphabetic());
+    if first_char.is_none() || !first_char.unwrap().is_ascii_uppercase() {
+        return false;
+    }
+    for (i, word) in words.iter().enumerate() {
+        let mut word_chars = word.chars();
+        let Some(start) = word_chars.find(|c| c.is_ascii_alphabetic()) else {
+            continue;
+        };
+        if i == 0 {
+            if !start.is_ascii_uppercase() {
+                return false;
+            }
+        } else if !start.is_ascii_lowercase() {
+            return false;
+        }
+        for c in word_chars {
+            if c.is_ascii_uppercase() {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+fn is_start_case(subject: &str) -> bool {
+    let words: Vec<&str> = subject.split_whitespace().collect();
+    if words.len() < 2 {
+        return false;
+    }
+    for word in words {
+        let mut chars = word.chars();
+        let Some(start) = chars.find(|c| c.is_ascii_alphabetic()) else {
+            continue;
+        };
+        if !start.is_ascii_uppercase() {
+            return false;
+        }
+        for c in chars {
+            if c.is_ascii_uppercase() {
+                return false;
+            }
+        }
+    }
+    true
 }
 
 #[cfg(test)]
 mod tests {
+    #![allow(clippy::field_reassign_with_default)]
+
     use super::*;
 
     #[test]
@@ -520,6 +732,11 @@ mod tests {
             "expected no violations, got {:?}",
             outcome.violations_before
         );
+        assert!(
+            outcome.warnings_before.is_empty(),
+            "expected no warnings, got {:?}",
+            outcome.warnings_before
+        );
     }
 
     #[test]
@@ -537,10 +754,10 @@ mod tests {
         let outcome = lint_message(message, &options);
         assert!(
             outcome
-                .violations_before
+                .warnings_before
                 .iter()
-                .any(|msg| msg.contains("Body must begin with a blank line")),
-            "expected blank-line violation"
+                .any(|msg| msg == "body must have leading blank line"),
+            "expected body-leading-blank warning"
         );
     }
 
@@ -559,10 +776,10 @@ mod tests {
         let outcome = lint_message(message, &options);
         assert!(
             outcome
-                .violations_before
+                .warnings_before
                 .iter()
-                .any(|msg| msg.contains("Footers must be separated")),
-            "expected footer separation violation"
+                .any(|msg| msg == "footer must have leading blank line"),
+            "expected footer-leading-blank warning"
         );
     }
 
@@ -607,6 +824,46 @@ mod tests {
                 .iter()
                 .any(|msg| msg.contains("BREAKING CHANGE footer token must be uppercase")),
             "expected uppercase violation"
+        );
+    }
+
+    #[test]
+    fn conventional_body_allows_bullets_with_colons() {
+        let mut options = LintOptions::default();
+        options.message_pattern = Some(
+            build_message_pattern(
+                "^(?P<type>\\w+)(\\((?P<scope>.*)\\))?(?P<breaking>!)?: (?P<description>.+)$",
+                Some("Conventional".into()),
+            )
+            .unwrap(),
+        );
+        options.enforce_conventional_spec = true;
+        let message = "feat: add api\n\n- Update: handle edge cases\n- Note: keep API stable\n\nBREAKING CHANGE: endpoint renamed";
+        let outcome = lint_message(message, &options);
+        assert!(
+            outcome.violations_before.is_empty(),
+            "expected no violations, got {:?}",
+            outcome.violations_before
+        );
+    }
+
+    #[test]
+    fn conventional_header_allows_digits_and_underscore() {
+        let mut options = LintOptions::default();
+        options.message_pattern = Some(
+            build_message_pattern(
+                "^(?P<type>\\w+)(\\((?P<scope>.*)\\))?(?P<breaking>!)?: (?P<description>.+)$",
+                Some("Conventional".into()),
+            )
+            .unwrap(),
+        );
+        options.enforce_conventional_spec = true;
+        let message = "ci(test_2): add workflow caching";
+        let outcome = lint_message(message, &options);
+        assert!(
+            outcome.violations_before.is_empty(),
+            "expected no violations, got {:?}",
+            outcome.violations_before
         );
     }
 }

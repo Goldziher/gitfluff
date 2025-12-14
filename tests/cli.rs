@@ -135,6 +135,130 @@ fn lint_applies_cleanup_with_write_flag() {
 }
 
 #[test]
+fn lint_autofixes_conventional_layout_with_write_flag() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(
+        &msg_path,
+        "feat: add api\n- Note: handle edge cases  \nRefs: 123\n",
+    );
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .arg("--write")
+        .assert()
+        .success()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("applied cleanup"))
+        .stderr(predicate::str::contains("Insert blank line before body"))
+        .stderr(predicate::str::contains("Insert blank line before footers"))
+        .stderr(predicate::str::contains("Trim trailing whitespace"));
+
+    let rewritten = fs::read_to_string(&msg_path).unwrap();
+    assert_eq!(
+        rewritten,
+        "feat: add api\n\n- Note: handle edge cases\n\nRefs: 123"
+    );
+}
+
+#[test]
+fn commitlint_conventional_parity_suite() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+
+    let run = |message: &str| {
+        write_message(&msg_path, format!("{message}\n"));
+        cargo::cargo_bin_cmd!("gitfluff")
+            .arg("lint")
+            .arg("--from-file")
+            .arg(&msg_path)
+            .assert()
+    };
+
+    run("foo: some message")
+        .failure()
+        .stderr(predicate::str::contains(
+            "type must be one of [build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test]",
+        ));
+
+    run("FIX: some message")
+        .failure()
+        .stderr(predicate::str::contains("type must be lower-case"))
+        .stderr(predicate::str::contains(
+            "type must be one of [build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test]",
+        ));
+
+    run(": some message")
+        .failure()
+        .stderr(predicate::str::contains("type may not be empty"));
+
+    for invalid in [
+        "fix(scope): Some message",
+        "fix(scope): Some Message",
+        "fix(scope): SomeMessage",
+        "fix(scope): SOMEMESSAGE",
+    ] {
+        run(invalid).failure().stderr(predicate::str::contains(
+            "subject must not be sentence-case, start-case, pascal-case, upper-case",
+        ));
+    }
+
+    run("fix:")
+        .failure()
+        .stderr(predicate::str::contains("subject may not be empty"))
+        .stderr(predicate::str::contains("type may not be empty"));
+
+    run("fix: some message.")
+        .failure()
+        .stderr(predicate::str::contains(
+            "subject may not end with full stop",
+        ));
+
+    run("fix: some message that is way too long and breaks the line max-length by several characters since the max is 100")
+        .failure()
+        .stderr(predicate::str::contains(
+            "header must not be longer than 100 characters",
+        ));
+
+    run("fix: some message\n\nbody\nBREAKING CHANGE: It will be significant")
+        .success()
+        .stderr(predicate::str::contains(
+            "footer must have leading blank line",
+        ));
+
+    run("fix: some message\n\nbody\n\nBREAKING CHANGE: footer with multiple lines\nhas a message that is way too long and will break the line rule \"line-max-length\" by several characters")
+        .failure()
+        .stderr(predicate::str::contains(
+            "footer's lines must not be longer than 100 characters",
+        ));
+
+    run("fix: some message\nbody")
+        .success()
+        .stderr(predicate::str::contains(
+            "body must have leading blank line",
+        ));
+
+    run("fix: some message\n\nbody with multiple lines\nhas a message that is way too long and will break the line rule \"line-max-length\" by several characters")
+        .failure()
+        .stderr(predicate::str::contains(
+            "body's lines must not be longer than 100 characters",
+        ));
+
+    for valid in [
+        "fix: some message",
+        "fix(scope): some message",
+        "fix(scope): some Message",
+        "fix(scope): some message\n\nBREAKING CHANGE: it will be significant!",
+        "fix(scope): some message\n\nbody",
+        "fix(scope)!: some message\n\nbody",
+    ] {
+        run(valid).success().stderr(predicate::str::is_empty());
+    }
+}
+
+#[test]
 fn lint_can_fail_after_rewrite_when_configured() {
     let dir = tempdir().unwrap();
     let msg_path = dir.path().join("msg.txt");
@@ -297,7 +421,7 @@ fn cleanup_pattern_sanitizes_message() {
         ])
         .arg(&msg_path)
         .assert()
-        .success()
+        .failure()
         .stderr(predicate::str::contains("cleanup available"));
 
     cargo::cargo_bin_cmd!("gitfluff")
