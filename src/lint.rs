@@ -146,7 +146,7 @@ fn apply_autofix(input: &str, enforce_conventional: bool) -> (String, Vec<String
     let mut summaries = Vec::new();
 
     let trimmed_trailing = current
-        .lines()
+        .split('\n')
         .map(|line| line.trim_end_matches([' ', '\t']))
         .collect::<Vec<_>>()
         .join("\n");
@@ -155,7 +155,7 @@ fn apply_autofix(input: &str, enforce_conventional: bool) -> (String, Vec<String
         summaries.push("Trim trailing whitespace".to_string());
     }
 
-    let trimmed_edges = current.trim_matches('\n').to_string();
+    let trimmed_edges = trim_edge_blank_lines(&current);
     if trimmed_edges != current {
         current = trimmed_edges;
         summaries.push("Trim leading/trailing blank lines".to_string());
@@ -199,6 +199,25 @@ fn apply_autofix(input: &str, enforce_conventional: bool) -> (String, Vec<String
     }
 
     (current, summaries)
+}
+
+fn trim_edge_blank_lines(input: &str) -> String {
+    let had_trailing_newline = input.ends_with('\n');
+    let mut lines: Vec<&str> = input.split('\n').collect();
+
+    while lines.first().is_some_and(|line| line.trim().is_empty()) {
+        lines.remove(0);
+    }
+
+    while lines.last().is_some_and(|line| line.trim().is_empty()) {
+        lines.pop();
+    }
+
+    let mut out = lines.join("\n");
+    if had_trailing_newline && !out.is_empty() {
+        out.push('\n');
+    }
+    out
 }
 
 fn detect_footer_start(lines: &[&str]) -> Option<usize> {
@@ -670,6 +689,80 @@ mod tests {
         assert_eq!(outcome.cleaned_message, "feat: demo");
         assert_eq!(outcome.cleanup_summaries.len(), 1);
         assert!(outcome.violations_after.is_empty());
+    }
+
+    #[test]
+    fn autofix_preserves_single_trailing_newline() {
+        let mut options = LintOptions::default();
+        options.autofix = true;
+        let input = "feat: demo\n";
+        let outcome = lint_message(input, &options);
+        assert_eq!(outcome.cleaned_message, input);
+        assert!(outcome.cleanup_summaries.is_empty());
+    }
+
+    #[test]
+    fn autofix_trims_excess_trailing_blank_lines() {
+        let mut options = LintOptions::default();
+        options.autofix = true;
+        let outcome = lint_message("feat: demo\n\n\n", &options);
+        assert_eq!(outcome.cleaned_message, "feat: demo\n");
+        assert!(
+            outcome
+                .cleanup_summaries
+                .iter()
+                .any(|msg| msg == "Trim leading/trailing blank lines")
+        );
+    }
+
+    #[test]
+    fn autofix_trims_trailing_whitespace() {
+        let mut options = LintOptions::default();
+        options.autofix = true;
+        let outcome = lint_message("feat: demo  \nbody\t \n", &options);
+        assert_eq!(outcome.cleaned_message, "feat: demo\nbody\n");
+        assert!(
+            outcome
+                .cleanup_summaries
+                .iter()
+                .any(|msg| msg == "Trim trailing whitespace")
+        );
+    }
+
+    #[test]
+    fn autofix_inserts_blank_line_before_body() {
+        let mut options = LintOptions::default();
+        options.autofix = true;
+        options.enforce_conventional_spec = true;
+        let outcome = lint_message("feat: add api\nbody line", &options);
+        assert_eq!(outcome.cleaned_message, "feat: add api\n\nbody line");
+        assert!(outcome.warnings_after.is_empty());
+        assert!(
+            outcome
+                .cleanup_summaries
+                .iter()
+                .any(|msg| msg == "Insert blank line before body")
+        );
+    }
+
+    #[test]
+    fn autofix_inserts_blank_line_before_footer() {
+        let mut options = LintOptions::default();
+        options.autofix = true;
+        options.enforce_conventional_spec = true;
+        let message = "feat: add api\n\nBody line\nRefs: 123";
+        let outcome = lint_message(message, &options);
+        assert_eq!(
+            outcome.cleaned_message,
+            "feat: add api\n\nBody line\n\nRefs: 123"
+        );
+        assert!(outcome.warnings_after.is_empty());
+        assert!(
+            outcome
+                .cleanup_summaries
+                .iter()
+                .any(|msg| msg == "Insert blank line before footers")
+        );
     }
 
     #[test]

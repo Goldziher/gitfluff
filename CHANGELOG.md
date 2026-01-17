@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-01-17
+
+### Fixed
+
+- Preserve a single trailing newline when autofixing commit messages to avoid repeated rewrites.
+
+### Added
+
+- Expanded tests for whitespace cleanup and Conventional Commit blank-line autofixes.
+
 ## [0.7.0] - 2025-12-14
 
 ### Added

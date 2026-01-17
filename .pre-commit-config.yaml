@@ -4,7 +4,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: main
+    rev: v0.7.0
     hooks:
       - id: gitfluff-lint
         args: ["--write"]
@@ -23,7 +23,7 @@ repos:
       - id: check-case-conflict
       - id: detect-private-key
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.9
+    rev: v1.7.10
     hooks:
       - id: actionlint
   - repo: https://github.com/abravalheri/validate-pyproject
@@ -35,12 +35,12 @@ repos:
     hooks:
       - id: markdownlint-fix
   - repo: https://github.com/biomejs/pre-commit
-    rev: v2.3.8
+    rev: v2.3.11
     hooks:
       - id: biome-format
       - id: biome-lint
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.14.9
+    rev: v0.14.13
     hooks:
       - id: ruff
         args: ["--fix", "--unsafe-fixes"]

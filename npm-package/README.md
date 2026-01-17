@@ -15,7 +15,7 @@ npm install -g gitfluff
 **Run without installation:**
 
 ```bash
-npx gitfluff@0.7.0 --version
+npx gitfluff@0.7.1 --version
 ```
 
 **Lint a commit message:**
@@ -69,7 +69,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.7.0
+    rev: v0.7.1
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]

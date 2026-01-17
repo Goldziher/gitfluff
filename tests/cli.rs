@@ -159,7 +159,7 @@ fn lint_autofixes_conventional_layout_with_write_flag() {
     let rewritten = fs::read_to_string(&msg_path).unwrap();
     assert_eq!(
         rewritten,
-        "feat: add api\n\n- Note: handle edge cases\n\nRefs: 123"
+        "feat: add api\n\n- Note: handle edge cases\n\nRefs: 123\n"
     );
 }
 
