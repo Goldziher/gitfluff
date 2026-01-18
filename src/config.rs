@@ -21,6 +21,12 @@ pub struct RulesConfig {
     pub single_line: Option<bool>,
     pub require_body: Option<bool>,
     pub exit_nonzero_on_rewrite: Option<bool>,
+    pub no_emojis: Option<bool>,
+    pub ascii_only: Option<bool>,
+    pub title_prefix: Option<String>,
+    pub title_prefix_separator: Option<String>,
+    pub title_suffix: Option<String>,
+    pub title_suffix_separator: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]

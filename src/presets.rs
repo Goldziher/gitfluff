@@ -28,7 +28,7 @@ pub fn resolve_preset(name: &str) -> Option<Preset> {
 fn conventional() -> Preset {
     Preset {
         message_pattern: CONVENTIONAL_PATTERN,
-        description: "Conventional Commits header (AI signatures are cleaned automatically)",
+        description: "Conventional Commits title line (AI signatures are cleaned automatically)",
         body_policy: BodyPolicy::Any,
         enforce_spec: true,
     }
@@ -37,7 +37,7 @@ fn conventional() -> Preset {
 fn conventional_with_body() -> Preset {
     Preset {
         message_pattern: CONVENTIONAL_PATTERN,
-        description: "Conventional Commits header with a required body section",
+        description: "Conventional Commits title line with a required body section",
         body_policy: BodyPolicy::RequireBody,
         enforce_spec: true,
     }

@@ -17,7 +17,7 @@ use crate::config::load_config;
 use crate::hooks::install_hook;
 use crate::lint::{
     BodyPolicy, LintOptions, build_cleanup_rule, build_exclude_rule, build_message_pattern,
-    lint_message,
+    build_title_prefix_rule, build_title_suffix_rule, lint_message,
 };
 use crate::presets::resolve_preset;
 
@@ -66,6 +66,9 @@ const AI_CLEANUP_RULES: &[(&str, &str, &str)] = &[
     ),
     ("\n{3,}", "\n\n", "Collapse excessive blank lines"),
 ];
+
+const DEFAULT_TITLE_PREFIX_SEPARATOR: &str = " * ";
+const DEFAULT_TITLE_SUFFIX_SEPARATOR: &str = " ";
 
 fn main() {
     let exit_code = match run() {
@@ -161,10 +164,31 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     };
 
     let mut body_policy = preset.body_policy;
+    let mut forbid_emojis = false;
+    let mut forbid_non_ascii = false;
+    let mut title_prefix_pattern: Option<String> = None;
+    let mut title_prefix_separator = DEFAULT_TITLE_PREFIX_SEPARATOR.to_string();
+    let mut title_suffix_pattern: Option<String> = None;
+    let mut title_suffix_separator = DEFAULT_TITLE_SUFFIX_SEPARATOR.to_string();
 
     if let Some((_, cfg)) = &loaded_config {
         let single_line_flag = cfg.rules.single_line.unwrap_or(false);
         let require_body_flag = cfg.rules.require_body.unwrap_or(false);
+        forbid_emojis = cfg.rules.no_emojis.unwrap_or(false);
+        forbid_non_ascii = cfg.rules.ascii_only.unwrap_or(false);
+
+        if let Some(pattern) = &cfg.rules.title_prefix {
+            title_prefix_pattern = Some(pattern.clone());
+        }
+        if let Some(separator) = &cfg.rules.title_prefix_separator {
+            title_prefix_separator = separator.clone();
+        }
+        if let Some(pattern) = &cfg.rules.title_suffix {
+            title_suffix_pattern = Some(pattern.clone());
+        }
+        if let Some(separator) = &cfg.rules.title_suffix_separator {
+            title_suffix_separator = separator.clone();
+        }
 
         if single_line_flag && require_body_flag {
             return Err(anyhow!(
@@ -234,6 +258,21 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         body_policy = BodyPolicy::RequireBody;
     }
 
+    if args.no_emojis {
+        forbid_emojis = true;
+    }
+    if args.ascii_only {
+        forbid_non_ascii = true;
+    }
+    if let Some(pattern) = &args.title_prefix {
+        title_prefix_pattern = Some(pattern.clone());
+        title_prefix_separator = args.title_prefix_separator.clone();
+    }
+    if let Some(pattern) = &args.title_suffix {
+        title_suffix_pattern = Some(pattern.clone());
+        title_suffix_separator = args.title_suffix_separator.clone();
+    }
+
     let write_requested = if args.write {
         true
     } else if let Some((_, cfg)) = &loaded_config {
@@ -253,6 +292,16 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     };
 
     options.body_policy = body_policy;
+    options.forbid_emojis = forbid_emojis;
+    options.forbid_non_ascii = forbid_non_ascii;
+
+    if let Some(pattern) = title_prefix_pattern.as_ref() {
+        options.title_prefix = Some(build_title_prefix_rule(pattern, &title_prefix_separator)?);
+    }
+
+    if let Some(pattern) = title_suffix_pattern.as_ref() {
+        options.title_suffix = Some(build_title_suffix_rule(pattern, &title_suffix_separator)?);
+    }
 
     for (pattern, message) in AI_EXCLUDE_RULES {
         options

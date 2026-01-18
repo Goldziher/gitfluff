@@ -15,7 +15,7 @@ npm install -g gitfluff
 **Run without installation:**
 
 ```bash
-npx gitfluff@0.7.1 --version
+npx gitfluff@0.8.0 --version
 ```
 
 **Lint a commit message:**
@@ -69,7 +69,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.7.1
+    rev: v0.8.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
@@ -126,9 +126,12 @@ npx lefthook install
 
 ```toml
 preset = "conventional-body"
+write = true
 
 [rules]
-write = true
+no_emojis = true
+title_prefix = "JIRA-[0-9]+"
+title_prefix_separator = " * "
 
 [[rules.cleanup]]
 find = "(?i)wip"
@@ -139,7 +142,7 @@ All keys are optional—omit the file to stick with the default Conventional Com
 
 ## Advanced usage
 
-- Override rules inline with CLI flags: `--preset`, `--msg-pattern`, `--exclude`, `--cleanup`, `--cleanup-pattern`, `--single-line`, `--require-body`.
+- Override rules inline with CLI flags: `--preset`, `--msg-pattern`, `--exclude`, `--cleanup`, `--cleanup-pattern`, `--single-line`, `--require-body`, `--no-emojis`, `--ascii-only`, `--title-prefix`, `--title-suffix`.
 - Combine with `--write` to apply cleanups when running inside hooks or automation.
 - Set `GITFLUFF_BINARY` to point at a custom build if you need to test unpublished binaries.
 

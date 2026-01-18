@@ -47,7 +47,7 @@ pub struct LintArgs {
     #[arg(long)]
     pub preset: Option<String>,
 
-    /// Provide a custom regex that the commit summary must satisfy.
+    /// Provide a custom regex that the commit title line must satisfy.
     #[arg(
         long = "msg-pattern",
         alias = "message-pattern",
@@ -87,6 +87,40 @@ pub struct LintArgs {
         requires = "cleanup_pattern"
     )]
     pub cleanup_description: Option<String>,
+
+    /// Fail if the commit message contains emoji characters.
+    #[arg(long = "no-emojis")]
+    pub no_emojis: bool,
+
+    /// Fail if the commit message contains non-ASCII characters.
+    #[arg(long = "ascii-only", alias = "no-non-ascii")]
+    pub ascii_only: bool,
+
+    /// Require a title prefix that matches this regex before the Conventional Commit title.
+    #[arg(long = "title-prefix", value_name = "REGEX")]
+    pub title_prefix: Option<String>,
+
+    /// Literal separator between the required title prefix and the Conventional Commit title.
+    #[arg(
+        long = "title-prefix-separator",
+        value_name = "TEXT",
+        default_value = " * ",
+        requires = "title_prefix"
+    )]
+    pub title_prefix_separator: String,
+
+    /// Require a title suffix that matches this regex after the Conventional Commit title.
+    #[arg(long = "title-suffix", value_name = "REGEX")]
+    pub title_suffix: Option<String>,
+
+    /// Literal separator between the Conventional Commit title and the required suffix.
+    #[arg(
+        long = "title-suffix-separator",
+        value_name = "TEXT",
+        default_value = " ",
+        requires = "title_suffix"
+    )]
+    pub title_suffix_separator: String,
 
     #[arg(long)]
     pub config: Option<PathBuf>,

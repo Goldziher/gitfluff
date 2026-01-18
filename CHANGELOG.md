@@ -8,6 +8,18 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-01-18
+
+### Added
+
+- Title prefix/suffix validation with configurable separators.
+- Optional rules to forbid emoji characters and enforce ASCII-only commit messages.
+- Expanded test coverage for new rules and precedence behavior.
+
+### Changed
+
+- Reworked README with a clearer, user-focused onboarding flow.
+
 ## [0.7.1] - 2026-01-17
 
 ### Fixed

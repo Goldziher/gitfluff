@@ -22,6 +22,13 @@ pub struct CleanupRule {
     pub pattern_source: String,
 }
 
+#[derive(Debug, Clone)]
+pub struct TitleAffixRule {
+    pub regex: Regex,
+    pub pattern_source: String,
+    pub separator: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum BodyPolicy {
     #[default]
@@ -38,6 +45,10 @@ pub struct LintOptions {
     pub body_policy: BodyPolicy,
     pub enforce_conventional_spec: bool,
     pub autofix: bool,
+    pub forbid_emojis: bool,
+    pub forbid_non_ascii: bool,
+    pub title_prefix: Option<TitleAffixRule>,
+    pub title_suffix: Option<TitleAffixRule>,
 }
 
 #[derive(Debug)]
@@ -90,26 +101,40 @@ fn evaluate_message(message: &str, options: &LintOptions) -> (Vec<String>, Vec<S
         }
     }
 
-    let header_line = message.lines().next().unwrap_or("");
-    if header_line.trim().is_empty() {
-        violations.push("Commit message header must not be empty".to_string());
+    if options.forbid_emojis && contains_emoji(message) {
+        violations.push("Commit message must not contain emoji characters".to_string());
+    }
+
+    if options.forbid_non_ascii && contains_non_ascii(message) {
+        violations.push("Commit message must use ASCII characters only".to_string());
+    }
+
+    let normalized = message.replace("\r\n", "\n").replace('\r', "\n");
+    let title_line = normalized.lines().next().unwrap_or("");
+    if title_line.trim().is_empty() {
+        violations.push("Commit title (first line) must not be empty".to_string());
         return (violations, warnings);
     }
 
+    let title_core = strip_title_affixes(title_line, options, &mut violations);
+
     if !options.enforce_conventional_spec
         && let Some(pattern) = &options.message_pattern
-        && !pattern.regex.is_match(header_line.trim())
+        && !pattern.regex.is_match(title_core.trim())
     {
         let desc = pattern
             .description
             .as_deref()
-            .unwrap_or("Commit message does not match required pattern");
+            .unwrap_or("Commit title does not match required pattern");
         violations.push(desc.to_string());
     }
 
     if options.enforce_conventional_spec {
-        let (mut errs, mut warns) =
-            validate_conventional_commitlint_rules(message, options.body_policy);
+        let (mut errs, mut warns) = validate_conventional_commitlint_rules(
+            &normalized,
+            options.body_policy,
+            Some(title_core),
+        );
         violations.append(&mut errs);
         warnings.append(&mut warns);
     } else {
@@ -117,6 +142,88 @@ fn evaluate_message(message: &str, options: &LintOptions) -> (Vec<String>, Vec<S
     }
 
     (violations, warnings)
+}
+
+fn strip_title_affixes<'a>(
+    title_line: &'a str,
+    options: &LintOptions,
+    violations: &mut Vec<String>,
+) -> &'a str {
+    let mut current = title_line;
+
+    if let Some(prefix) = &options.title_prefix {
+        if let Some(matched) = prefix.regex.find(current) {
+            current = &current[matched.end()..];
+        } else {
+            violations.push(format_affix_prefix_violation(prefix));
+        }
+    }
+
+    if let Some(suffix) = &options.title_suffix {
+        if let Some(matched) = suffix.regex.find(current) {
+            current = &current[..matched.start()];
+        } else {
+            violations.push(format_affix_suffix_violation(suffix));
+        }
+    }
+
+    current
+}
+
+fn format_affix_prefix_violation(rule: &TitleAffixRule) -> String {
+    if rule.separator.is_empty() {
+        format!(
+            "Commit title must start with prefix matching regex `{}`",
+            rule.pattern_source
+        )
+    } else {
+        format!(
+            "Commit title must start with prefix matching regex `{}` followed by separator `{}`",
+            rule.pattern_source, rule.separator
+        )
+    }
+}
+
+fn format_affix_suffix_violation(rule: &TitleAffixRule) -> String {
+    if rule.separator.is_empty() {
+        format!(
+            "Commit title must end with suffix matching regex `{}`",
+            rule.pattern_source
+        )
+    } else {
+        format!(
+            "Commit title must end with separator `{}` followed by suffix matching regex `{}`",
+            rule.separator, rule.pattern_source
+        )
+    }
+}
+
+fn contains_non_ascii(message: &str) -> bool {
+    !message.is_ascii()
+}
+
+fn contains_emoji(message: &str) -> bool {
+    message.chars().any(is_emoji_char)
+}
+
+fn is_emoji_char(c: char) -> bool {
+    matches!(
+        c as u32,
+        0x1F000..=0x1F02F
+            | 0x1F0A0..=0x1F0FF
+            | 0x1F1E6..=0x1F1FF
+            | 0x1F300..=0x1F5FF
+            | 0x1F600..=0x1F64F
+            | 0x1F680..=0x1F6FF
+            | 0x1F700..=0x1F77F
+            | 0x1F780..=0x1F7FF
+            | 0x1F800..=0x1F8FF
+            | 0x1F900..=0x1F9FF
+            | 0x1FA00..=0x1FA6F
+            | 0x1FA70..=0x1FAFF
+            | 0x2600..=0x26FF
+            | 0x2700..=0x27BF
+    )
 }
 
 fn apply_cleanup(input: &str, rules: &[CleanupRule]) -> (String, Vec<String>) {
@@ -173,8 +280,8 @@ fn apply_autofix(input: &str, enforce_conventional: bool) -> (String, Vec<String
     if enforce_conventional {
         let mut lines: Vec<&str> = current.split('\n').collect();
         if !lines.is_empty() {
-            let has_content_after_header = lines.iter().skip(1).any(|line| !line.trim().is_empty());
-            if has_content_after_header {
+            let has_content_after_title = lines.iter().skip(1).any(|line| !line.trim().is_empty());
+            if has_content_after_title {
                 if lines.get(1).is_some_and(|line| !line.trim().is_empty()) {
                     lines.insert(1, "");
                     summaries.push("Insert blank line before body".to_string());
@@ -265,6 +372,28 @@ pub fn build_cleanup_rule(
     })
 }
 
+pub fn build_title_prefix_rule(pattern: &str, separator: &str) -> Result<TitleAffixRule> {
+    let sep = regex::escape(separator);
+    let regex = Regex::new(&format!("^(?:{pattern}){sep}"))
+        .with_context(|| format!("invalid title prefix regex `{pattern}`"))?;
+    Ok(TitleAffixRule {
+        regex,
+        pattern_source: pattern.to_string(),
+        separator: separator.to_string(),
+    })
+}
+
+pub fn build_title_suffix_rule(pattern: &str, separator: &str) -> Result<TitleAffixRule> {
+    let sep = regex::escape(separator);
+    let regex = Regex::new(&format!("{sep}(?:{pattern})$"))
+        .with_context(|| format!("invalid title suffix regex `{pattern}`"))?;
+    Ok(TitleAffixRule {
+        regex,
+        pattern_source: pattern.to_string(),
+        separator: separator.to_string(),
+    })
+}
+
 #[derive(Debug)]
 struct FooterEntry {
     token: String,
@@ -283,7 +412,7 @@ fn validate_body_policy(message: &str, policy: BodyPolicy) -> Vec<String> {
         }
         BodyPolicy::RequireBody => {
             let mut lines = message.lines();
-            lines.next(); // header
+            lines.next(); // title line
 
             let mut saw_blank = false;
             let mut body_has_content = false;
@@ -352,26 +481,28 @@ fn parse_footer_line(line: &str) -> Option<FooterEntry> {
 fn validate_conventional_commitlint_rules(
     message: &str,
     policy: BodyPolicy,
+    title_override: Option<&str>,
 ) -> (Vec<String>, Vec<String>) {
     let mut errors = Vec::new();
     let mut warnings = Vec::new();
 
     let normalized = message.replace("\r\n", "\n").replace('\r', "\n");
     let mut lines = normalized.split('\n');
-    let header = lines.next().unwrap_or("");
+    let first_line = lines.next().unwrap_or("");
     let rest: Vec<&str> = lines.collect();
+    let title_line = title_override.unwrap_or(first_line);
 
-    let header_len = header.chars().count();
-    if header_len > 100 {
+    let title_len = title_line.chars().count();
+    if title_len > 100 {
         errors.push(format!(
-            "header must not be longer than 100 characters, current length is {header_len}"
+            "title line must not be longer than 100 characters, current length is {title_len}"
         ));
     }
 
-    let header_re =
-        Regex::new(r"^(\w*)(?:\((.*)\))?!?: (.*)$").expect("valid conventional header regex");
-    let (ty, subject) = header_re
-        .captures(header)
+    let title_re =
+        Regex::new(r"^(\w*)(?:\((.*)\))?!?: (.*)$").expect("valid conventional title regex");
+    let (ty, subject) = title_re
+        .captures(title_line)
         .map(|caps| {
             (
                 caps.get(1).map(|m| m.as_str()).unwrap_or(""),
@@ -658,15 +789,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn rejects_empty_header() {
+    fn rejects_empty_title() {
         let options = LintOptions::default();
         let outcome = lint_message("", &options);
         assert!(
             outcome
                 .violations_before
                 .iter()
-                .any(|msg| msg.contains("header must not be empty")),
-            "expected empty header violation"
+                .any(|msg| msg.contains("title (first line) must not be empty")),
+            "expected empty title violation"
         );
     }
 
@@ -941,7 +1072,7 @@ mod tests {
     }
 
     #[test]
-    fn conventional_header_allows_digits_and_underscore() {
+    fn conventional_title_allows_digits_and_underscore() {
         let mut options = LintOptions::default();
         options.message_pattern = Some(
             build_message_pattern(

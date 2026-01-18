@@ -69,7 +69,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.7.1
+    rev: v0.8.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
@@ -109,6 +109,8 @@ preset = "conventional-body"  # optional preset override
 write = true
 
 [rules]
+no_emojis = true
+title_suffix = "\\(JIRA-[0-9]+\\)"
 exit_nonzero_on_rewrite = true
 ```
 
@@ -116,7 +118,7 @@ Any setting can be left out; omit the file entirely to keep defaults.
 
 ## Advanced usage
 
-- Override rules per-invocation using CLI flags (e.g. `--preset`, `--msg-pattern`, `--cleanup-pattern`, `--exclude`, `--cleanup`, `--single-line`).
+- Override rules per-invocation using CLI flags (e.g. `--preset`, `--msg-pattern`, `--cleanup-pattern`, `--exclude`, `--cleanup`, `--single-line`, `--no-emojis`, `--ascii-only`, `--title-prefix`, `--title-suffix`).
 - Set `GITFLUFF_BINARY` to point at a custom build when testing unpublished versions.
 - Clear the cache (`rm ~/.cache/gitfluff/gitfluff*`) to force a fresh download.
 

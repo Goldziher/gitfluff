@@ -219,7 +219,7 @@ fn commitlint_conventional_parity_suite() {
     run("fix: some message that is way too long and breaks the line max-length by several characters since the max is 100")
         .failure()
         .stderr(predicate::str::contains(
-            "header must not be longer than 100 characters",
+            "title line must not be longer than 100 characters",
         ));
 
     run("fix: some message\n\nbody\nBREAKING CHANGE: It will be significant")
@@ -320,6 +320,243 @@ require_body = true
 }
 
 #[test]
+fn lint_enforces_title_prefix_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "PROJ-123 * feat: add login\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+title_prefix = "PROJ-[0-9]+"
+title_prefix_separator = " * "
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+
+    write_message(&msg_path, "feat: add login\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must start"));
+}
+
+#[test]
+fn lint_enforces_title_suffix_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add login (PROJ-123)\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+title_suffix = "\\(PROJ-[0-9]+\\)"
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+
+    write_message(&msg_path, "feat: add login\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must end"));
+}
+
+#[test]
+fn lint_accepts_title_prefix_default_separator_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "PROJ-123 * feat: add login\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+title_prefix = "PROJ-[0-9]+"
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+
+    write_message(&msg_path, "PROJ-123 feat: add login\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must start"));
+}
+
+#[test]
+fn lint_accepts_title_prefix_custom_separator_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "PROJ-123::feat: add login\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+title_prefix = "PROJ-[0-9]+"
+title_prefix_separator = "::"
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+
+    write_message(&msg_path, "PROJ-123 * feat: add login\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must start"));
+}
+
+#[test]
+fn lint_accepts_title_suffix_custom_separator_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add login :: PROJ-123\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+title_suffix = "PROJ-[0-9]+"
+title_suffix_separator = " :: "
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+
+    write_message(&msg_path, "feat: add login PROJ-123\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must end"));
+}
+
+#[test]
+fn lint_enforces_no_emojis_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add launch \u{1F680}\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+no_emojis = true
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("emoji"));
+}
+
+#[test]
+fn lint_enforces_ascii_only_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add login\n\nDetails: caf\u{00E9}\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+ascii_only = true
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ASCII"));
+}
+
+#[test]
 fn lint_accepts_custom_pattern_flag() {
     let dir = tempdir().unwrap();
     let msg_path = dir.path().join("msg.txt");
@@ -358,6 +595,369 @@ fn lint_uses_custom_pattern_description() {
         .assert()
         .failure()
         .stderr(predicate::str::contains("Ticket prefix required"));
+}
+
+#[test]
+fn lint_rejects_emojis_when_enabled() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add launch \u{1F680}\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--no-emojis", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("must not contain emoji"));
+
+    write_message(&msg_path, "feat: add launch\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--no-emojis", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+}
+
+#[test]
+fn lint_rejects_non_ascii_when_enabled() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add caf\u{00E9}\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--ascii-only", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ASCII"));
+
+    write_message(&msg_path, "feat: add cafe\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--ascii-only", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+}
+
+#[test]
+fn lint_accepts_required_title_prefix() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "PROJ-123 * feat: add login\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--title-prefix", "PROJ-[0-9]+", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    write_message(&msg_path, "feat: add login\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--title-prefix", "PROJ-[0-9]+", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must start"));
+}
+
+#[test]
+fn lint_accepts_required_title_suffix() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add login (PROJ-123)\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--title-suffix", "\\(PROJ-[0-9]+\\)", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    write_message(&msg_path, "feat: add login\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--title-suffix", "\\(PROJ-[0-9]+\\)", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must end"));
+}
+
+#[test]
+fn lint_accepts_title_prefix_with_custom_separator_flag() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "PROJ-123::feat: add login\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args([
+            "lint",
+            "--title-prefix",
+            "PROJ-[0-9]+",
+            "--title-prefix-separator",
+            "::",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    write_message(&msg_path, "PROJ-123 feat: add login\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args([
+            "lint",
+            "--title-prefix",
+            "PROJ-[0-9]+",
+            "--title-prefix-separator",
+            "::",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must start"));
+}
+
+#[test]
+fn lint_accepts_title_suffix_with_custom_separator_flag() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add login :: PROJ-123\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args([
+            "lint",
+            "--title-suffix",
+            "PROJ-[0-9]+",
+            "--title-suffix-separator",
+            " :: ",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    write_message(&msg_path, "feat: add login PROJ-123\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args([
+            "lint",
+            "--title-suffix",
+            "PROJ-[0-9]+",
+            "--title-suffix-separator",
+            " :: ",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must end"));
+}
+
+#[test]
+fn lint_cli_overrides_title_prefix_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "CLI-999 * feat: add login\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+title_prefix = "CFG-[0-9]+"
+title_prefix_separator = " * "
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must start"));
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--title-prefix", "CLI-[0-9]+", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+}
+
+#[test]
+fn lint_cli_overrides_title_prefix_separator_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "PROJ-123 * feat: add login\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+title_prefix = "PROJ-[0-9]+"
+title_prefix_separator = "::"
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("title must start"));
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args([
+            "lint",
+            "--title-prefix",
+            "PROJ-[0-9]+",
+            "--title-prefix-separator",
+            " * ",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+}
+
+#[test]
+fn lint_cli_overrides_no_emojis_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add launch \u{1F680}\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+no_emojis = false
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--no-emojis", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("emoji"));
+}
+
+#[test]
+fn lint_cli_overrides_ascii_only_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add caf\u{00E9}\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+ascii_only = false
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--ascii-only", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("ASCII"));
+}
+
+#[test]
+fn lint_rejects_emojis_in_body_when_enabled() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add launch\n\nNotes: \u{1F680}\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--no-emojis", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("emoji"));
+}
+
+#[test]
+fn lint_title_prefix_applies_before_message_pattern() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "PROJ-1 * feat: add login\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args([
+            "lint",
+            "--title-prefix",
+            "PROJ-[0-9]+",
+            "--msg-pattern",
+            "^(feat|fix): .+$",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args([
+            "lint",
+            "--title-prefix",
+            "PROJ-[0-9]+",
+            "--msg-pattern",
+            "^fix: .+$",
+            "--from-file",
+        ])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Commit message must match pattern `^fix: .+$`",
+        ));
+}
+
+#[test]
+fn lint_rejects_invalid_title_prefix_regex_flag() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "PROJ-1 * feat: add login\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--title-prefix", "PROJ-[0-9]+(", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("invalid title prefix regex"));
 }
 
 #[test]
