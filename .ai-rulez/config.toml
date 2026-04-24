@@ -6,4 +6,4 @@ name = 'gitfluff'
 description = 'Rust-based CLI tool for enforcing Conventional Commits 1.0.0 specification with automatic message cleanup and multi-platform distribution.'
 gitignore = true
 presets = ['claude', 'codex', 'gemini']
-builtins = ['code-quality', 'git-workflow', 'security', 'testing', 'token-efficiency', 'default-commands', 'rust']
+builtins = ['rust', 'default-commands']
