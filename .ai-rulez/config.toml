@@ -7,3 +7,14 @@ description = 'Rust-based CLI tool for enforcing Conventional Commits 1.0.0 spec
 gitignore = true
 presets = ['claude', 'codex', 'gemini']
 builtins = ['rust', 'default-commands']
+
+[[marketplaces]]
+name = "basemind"
+source = "Goldziher/basemind"
+type = "github"
+
+[[plugins]]
+marketplace = "basemind"
+name = "basemind"
+scope = "project"
+enabled = true
