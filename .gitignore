@@ -1,11 +1,6 @@
 /target
 
-# AI Rules generated files
-.claude/agents/
-.mcp.json
-CLAUDE.md
-.gemini/
-# Added by goreleaser init:
-dist/
-.intentionally-empty-file.o
-target/
+# BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
+.agents/
+.ai-rulez/.generated-manifest.json
+# END ai-rulez
