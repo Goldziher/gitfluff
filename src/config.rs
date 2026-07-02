@@ -48,10 +48,7 @@ pub struct CleanupRuleConfig {
     pub description: Option<String>,
 }
 
-pub fn load_config(
-    explicit_path: Option<&Path>,
-    start_dir: &Path,
-) -> Result<Option<(PathBuf, FileConfig)>> {
+pub fn load_config(explicit_path: Option<&Path>, start_dir: &Path) -> Result<Option<(PathBuf, FileConfig)>> {
     let path = match explicit_path {
         Some(p) => p.to_path_buf(),
         None => match find_config(start_dir) {
@@ -60,10 +57,9 @@ pub fn load_config(
         },
     };
 
-    let content = fs::read_to_string(&path)
-        .with_context(|| format!("failed to read config at {}", path.display()))?;
-    let config: FileConfig = toml::from_str(&content)
-        .with_context(|| format!("invalid config at {}", path.display()))?;
+    let content = fs::read_to_string(&path).with_context(|| format!("failed to read config at {}", path.display()))?;
+    let config: FileConfig =
+        toml::from_str(&content).with_context(|| format!("invalid config at {}", path.display()))?;
     Ok(Some((path, config)))
 }
 

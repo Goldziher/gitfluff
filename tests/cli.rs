@@ -56,9 +56,7 @@ fn lint_fails_for_ai_attribution_without_write() {
         .assert()
         .failure()
         .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::contains(
-            "Remove AI co-author attribution lines",
-        ))
+        .stderr(predicate::str::contains("Remove AI co-author attribution lines"))
         .stderr(predicate::str::contains("Remove AI generation notices"));
 }
 
@@ -121,14 +119,10 @@ fn lint_applies_cleanup_with_write_flag() {
         .assert()
         .success()
         .stdout(predicate::str::is_empty())
-        .stderr(predicate::str::contains(
-            "Remove AI co-author attribution lines",
-        ))
+        .stderr(predicate::str::contains("Remove AI co-author attribution lines"))
         .stderr(predicate::str::contains("Remove AI generation notices"))
         .stderr(predicate::str::contains("applied cleanup"))
-        .stderr(predicate::str::contains(
-            "Remove Claude Code attribution block",
-        ));
+        .stderr(predicate::str::contains("Remove Claude Code attribution block"));
 
     let rewritten = fs::read_to_string(&msg_path).unwrap();
     assert_eq!(rewritten.trim_end(), "feat: add login");
@@ -138,10 +132,7 @@ fn lint_applies_cleanup_with_write_flag() {
 fn lint_autofixes_conventional_layout_with_write_flag() {
     let dir = tempdir().unwrap();
     let msg_path = dir.path().join("msg.txt");
-    write_message(
-        &msg_path,
-        "feat: add api\n- Note: handle edge cases  \nRefs: 123\n",
-    );
+    write_message(&msg_path, "feat: add api\n- Note: handle edge cases  \nRefs: 123\n");
 
     cargo::cargo_bin_cmd!("gitfluff")
         .arg("lint")
@@ -157,10 +148,7 @@ fn lint_autofixes_conventional_layout_with_write_flag() {
         .stderr(predicate::str::contains("Trim trailing whitespace"));
 
     let rewritten = fs::read_to_string(&msg_path).unwrap();
-    assert_eq!(
-        rewritten,
-        "feat: add api\n\n- Note: handle edge cases\n\nRefs: 123\n"
-    );
+    assert_eq!(rewritten, "feat: add api\n\n- Note: handle edge cases\n\nRefs: 123\n");
 }
 
 #[test]
@@ -177,11 +165,9 @@ fn commitlint_conventional_parity_suite() {
             .assert()
     };
 
-    run("foo: some message")
-        .failure()
-        .stderr(predicate::str::contains(
-            "type must be one of [build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test]",
-        ));
+    run("foo: some message").failure().stderr(predicate::str::contains(
+        "type must be one of [build, chore, ci, docs, feat, fix, perf, refactor, revert, style, test]",
+    ));
 
     run("FIX: some message")
         .failure()
@@ -212,9 +198,7 @@ fn commitlint_conventional_parity_suite() {
 
     run("fix: some message.")
         .failure()
-        .stderr(predicate::str::contains(
-            "subject may not end with full stop",
-        ));
+        .stderr(predicate::str::contains("subject may not end with full stop"));
 
     run("fix: some message that is way too long and breaks the line max-length by several characters since the max is 100")
         .failure()
@@ -224,9 +208,7 @@ fn commitlint_conventional_parity_suite() {
 
     run("fix: some message\n\nbody\nBREAKING CHANGE: It will be significant")
         .success()
-        .stderr(predicate::str::contains(
-            "footer must have leading blank line",
-        ));
+        .stderr(predicate::str::contains("footer must have leading blank line"));
 
     run("fix: some message\n\nbody\n\nBREAKING CHANGE: footer with multiple lines\nhas a message that is way too long and will break the line rule \"line-max-length\" by several characters")
         .failure()
@@ -236,9 +218,7 @@ fn commitlint_conventional_parity_suite() {
 
     run("fix: some message\nbody")
         .success()
-        .stderr(predicate::str::contains(
-            "body must have leading blank line",
-        ));
+        .stderr(predicate::str::contains("body must have leading blank line"));
 
     run("fix: some message\n\nbody with multiple lines\nhas a message that is way too long and will break the line rule \"line-max-length\" by several characters")
         .failure()
@@ -533,7 +513,7 @@ no_emojis = true
 fn lint_enforces_ascii_only_from_config() {
     let dir = tempdir().unwrap();
     let msg_path = dir.path().join("msg.txt");
-    write_message(&msg_path, "feat: add login\n\nDetails: caf\u{00E9}\n");
+    write_message(&msg_path, "feat: add login\n\nDetails: calf\u{00E9}\n");
 
     fs::write(
         dir.path().join(".gitfluff.toml"),
@@ -622,7 +602,7 @@ fn lint_rejects_emojis_when_enabled() {
 fn lint_rejects_non_ascii_when_enabled() {
     let dir = tempdir().unwrap();
     let msg_path = dir.path().join("msg.txt");
-    write_message(&msg_path, "feat: add caf\u{00E9}\n");
+    write_message(&msg_path, "feat: add calf\u{00E9}\n");
 
     cargo::cargo_bin_cmd!("gitfluff")
         .args(["lint", "--ascii-only", "--from-file"])
@@ -866,7 +846,7 @@ no_emojis = false
 fn lint_cli_overrides_ascii_only_from_config() {
     let dir = tempdir().unwrap();
     let msg_path = dir.path().join("msg.txt");
-    write_message(&msg_path, "feat: add caf\u{00E9}\n");
+    write_message(&msg_path, "feat: add calf\u{00E9}\n");
 
     fs::write(
         dir.path().join(".gitfluff.toml"),
@@ -1087,10 +1067,10 @@ fn hook_behaves_like_precommit_example() {
         .to_path_buf();
     let path_var = env::var("PATH").unwrap_or_default();
     let mut hook_cmd = Command::new("sh");
-    hook_cmd.arg(&script_path).arg(&commit_msg_file).env(
-        "PATH",
-        format!("{}:{}", gitfluff_bin_dir.display(), path_var),
-    );
+    hook_cmd
+        .arg(&script_path)
+        .arg(&commit_msg_file)
+        .env("PATH", format!("{}:{}", gitfluff_bin_dir.display(), path_var));
     hook_cmd.current_dir(dir.path());
     hook_cmd.assert().success();
 

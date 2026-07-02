@@ -4,17 +4,17 @@ from __future__ import annotations
 
 import os
 import platform
+import ssl
 import subprocess
 import sys
-import tempfile
 import tarfile
+import tempfile
 import zipfile
-import ssl
-
-import certifi
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import Request, urlopen
+
+import certifi
 
 
 def _platform_triple() -> str:
@@ -51,10 +51,7 @@ def _asset(version: str) -> tuple[str, str]:
     tag = _python_version_to_tag(version)
     triple = _platform_triple()
     ext = "zip" if "windows" in triple else "tar.gz"
-    url = (
-        f"https://github.com/Goldziher/gitfluff/releases/download/"
-        f"v{tag}/gitfluff-{triple}.{ext}"
-    )
+    url = f"https://github.com/Goldziher/gitfluff/releases/download/v{tag}/gitfluff-{triple}.{ext}"
     return url, ext
 
 
@@ -81,9 +78,7 @@ def _extract(archive: Path, ext: str, destination: Path) -> None:
     else:
         with tarfile.open(archive, "r:gz") as tar:
             for member in tar.getmembers():
-                if member.name.endswith("gitfluff") or member.name.endswith(
-                    "gitfluff.exe"
-                ):
+                if member.name.endswith("gitfluff") or member.name.endswith("gitfluff.exe"):
                     with tar.extractfile(member) as src, destination.open("wb") as dst:
                         dst.write(src.read())
                     return

@@ -12,7 +12,7 @@ All commits in this repository **must** follow the [Conventional Commits 1.0.0](
 
 ## Format
 
-```
+```text
 <type>[optional scope][!]: <description>
 
 [optional body]
