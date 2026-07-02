@@ -2,5 +2,10 @@
 
 # BEGIN ai-rulez (DO NOT EDIT - managed by ai-rulez)
 .agents/
-.ai-rulez/.generated-manifest.json
+.claude/
+.codex/
+.gemini/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
 # END ai-rulez

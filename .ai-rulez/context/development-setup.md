@@ -8,7 +8,7 @@ priority: high
 
 - **Rust 1.70+** - Install via [rustup](https://rustup.rs/).
 - **Cargo** - Included with Rust.
-- **prek** - Pre-commit hook framework (install via `pip install pre-commit` or `brew install pre-commit`).
+- **poly** - Multi-language linter and formatter (polylint).
 - **Task** - Task runner (install via `brew install go-task` or see [taskfile.dev](https://taskfile.dev/)).
 
 ## Building
@@ -49,8 +49,9 @@ cargo fmt
 # Check formatting without modifying
 cargo fmt -- --check
 
-# Run all pre-commit hooks
-prek run --all-files
+# Check formatting and lint the codebase
+poly fmt --check .
+poly lint .
 ```
 
 ## Task Runner
@@ -60,19 +61,18 @@ The project uses [Task](https://taskfile.dev/) as a task runner. Run `task` to s
 ```bash
 task build     # Build release binary
 task test      # Run all tests
-task lint      # Run all linters via prek
+task lint      # Run all linters via poly
 task format    # Format code
 task check     # Run lint + test
 task setup     # Install dependencies and hooks
 ```
 
-## Pre-commit Hooks
+## Commit Hooks
 
-Hooks are managed via prek (pre-commit). Install them with:
+poly runs in CI via the shared reusable validate workflow. gitfluff's own commit-msg validation is installed as a git hook:
 
 ```bash
-prek install
-prek install --hook-type commit-msg
+gitfluff hook install
 ```
 
-This sets up both pre-commit checks (formatting, linting) and commit-msg validation (gitfluff).
+This sets up commit-msg validation (gitfluff).

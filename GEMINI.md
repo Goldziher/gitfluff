@@ -1,7 +1,7 @@
 <!--
 🤖 AI-RULEZ :: GENERATED FILE — DO NOT EDIT DIRECTLY
 Project: gitfluff
-Generated: 2026-06-17 20:42:33
+Generated: 2026-07-02 13:43:50
 Source: .ai-rulez/config.toml
 Target: GEMINI.md
 Content: rules=39, sections=0, agents=4
@@ -46,8 +46,8 @@ INSTRUCTIONS FOR AI AGENTS
    c. Commit both .ai-rulez/ and generated files
 
 Documentation: https://github.com/Goldziher/ai-rulez
-Content-Hash: blake3:0f583d750d6a9061027f15081a3a1ede9cdedf3718c97bc94804980b898e636b
-Source-Hash: blake3:5ccb1a15d869ec5baec434a10e4de8b72b04046651c9019fbcfa9f25e1931f93
+Content-Hash: blake3:059e4ee94c62229f5f967f0a89bb24be19057bb8ad6481d5dcb6a610ae39ca10
+Source-Hash: blake3:0f86e4e09edb8234079890e41ef9d7267d8dc4eb4b4bd99744a7b98510790e2a
 -->
 
 # gitfluff
@@ -242,6 +242,39 @@ Always wrap errors with context describing what operation failed. Never swallow 
 
 Briefly explain your reasoning for non-obvious decisions. State trade-offs when multiple approaches exist. Be transparent about uncertainty.
 
+### git-hook-integration
+
+**Priority:** high
+
+gitfluff integrates with Git hooks for automatic commit message linting. It supports both direct hook installation and third-party hook managers.
+
+## Direct Installation
+
+Install gitfluff as a `commit-msg` hook directly:
+
+```bash
+gitfluff hook install
+```
+
+Pass `--write` to enable automatic cleanup (removing AI signatures, normalizing formatting) before the commit is finalized.
+
+## Hook Installation Safety
+
+When implementing or modifying hook installation logic in `src/hooks.rs`:
+
+- Always **backup** existing hooks before overwriting them.
+- **Verify** the directory is a valid Git repository before installing hooks.
+- Use **atomic file operations** (write to temp file, then rename) to prevent corruption.
+- Set correct file permissions (executable bit) on installed hook scripts.
+
+## Supported Hook Managers
+
+- **Husky** - Node.js hook manager; gitfluff works as a called binary.
+- **Lefthook** - Go-based hook manager; gitfluff works as a called binary.
+- **Direct `.git/hooks/`** - Installed via `gitfluff hook install`.
+
+Repository-wide linting is handled separately by poly, which runs in CI via the shared reusable validate workflow.
+
 ### incremental-approach
 
 **Priority:** medium
@@ -283,44 +316,6 @@ Never add AI attribution to commits (no Co-Authored-By AI lines, no "Generated b
 **Priority:** medium
 
 Limit explanations to 1-3 sentences unless asked for detail. Use code blocks for code, not prose. Omit unchanged code when showing diffs — use comments like `// ... existing code ...` to indicate skipped sections. Never repeat information already visible in context. Prefer short, direct answers over comprehensive walkthroughs.
-
-### pre-commit-hook-integration
-
-**Priority:** high
-
-gitfluff integrates with Git hooks for automatic commit message linting. It supports both direct hook installation and the pre-commit framework.
-
-## .pre-commit-hooks.yaml
-
-The repository provides a `.pre-commit-hooks.yaml` that allows other projects to use gitfluff as a pre-commit hook:
-
-```yaml
-- repo: https://github.com/Goldziher/gitfluff
-  rev: vX.Y.Z
-  hooks:
-    - id: gitfluff-lint
-      args: ["--write"]
-      stages: [commit-msg]
-```
-
-The `--write` flag enables automatic cleanup (removing AI signatures, normalizing formatting) before the commit is finalized.
-
-## Hook Installation Safety
-
-When implementing or modifying hook installation logic in `src/hooks.rs`:
-
-- Always **backup** existing hooks before overwriting them.
-- **Verify** the directory is a valid Git repository before installing hooks.
-- Use **atomic file operations** (write to temp file, then rename) to prevent corruption.
-- Support both traditional `.git/hooks/` scripts and the pre-commit framework workflow.
-- Set correct file permissions (executable bit) on installed hook scripts.
-
-## Supported Hook Managers
-
-- **pre-commit** (prek) - Primary supported framework.
-- **Husky** - Node.js hook manager; gitfluff works as a called binary.
-- **Lefthook** - Go-based hook manager; gitfluff works as a called binary.
-- **Direct `.git/hooks/`** - Installed via `gitfluff hook install`.
 
 ### read-before-write
 
@@ -504,7 +499,7 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 
 - **Rust 1.70+** - Install via [rustup](https://rustup.rs/).
 - **Cargo** - Included with Rust.
-- **prek** - Pre-commit hook framework (install via `pip install pre-commit` or `brew install pre-commit`).
+- **poly** - Multi-language linter and formatter (polylint).
 - **Task** - Task runner (install via `brew install go-task` or see [taskfile.dev](https://taskfile.dev/)).
 
 ## Building
@@ -536,7 +531,8 @@ cargo fmt
 
 cargo fmt -- --check
 
-prek run --all-files
+poly fmt --check .
+poly lint .
 ```
 
 ## Task Runner
@@ -546,22 +542,21 @@ The project uses [Task](https://taskfile.dev/) as a task runner. Run `task` to s
 ```bash
 task build     # Build release binary
 task test      # Run all tests
-task lint      # Run all linters via prek
+task lint      # Run all linters via poly
 task format    # Format code
 task check     # Run lint + test
 task setup     # Install dependencies and hooks
 ```
 
-## Pre-commit Hooks
+## Commit Hooks
 
-Hooks are managed via prek (pre-commit). Install them with:
+poly runs in CI via the shared reusable validate workflow. gitfluff's own commit-msg validation is installed as a git hook:
 
 ```bash
-prek install
-prek install --hook-type commit-msg
+gitfluff hook install
 ```
 
-This sets up both pre-commit checks (formatting, linting) and commit-msg validation (gitfluff).
+This sets up commit-msg validation (gitfluff).
 
 ### owasp-quick-reference
 
@@ -575,6 +570,27 @@ This sets up both pre-commit checks (formatting, linting) and commit-msg validat
 8. **Data Integrity Failures** — verify software updates, use signed artifacts and checksums.
 9. **Logging Failures** — log all security events with context, protect log data from tampering.
 10. **SSRF** — validate and allowlist URLs, restrict outbound network requests.
+
+### poly
+
+poly (polylint) is a single-binary, multi-language linter and formatter. It bundles engines (ruff, oxc, taplo, rumdl) and delegates to native tools (cargo fmt/clippy, golangci-lint, actionlint, shellcheck, shfmt) when present.
+
+## Commands
+- Lint: `poly lint .`
+- Check formatting (dry-run): `poly fmt --check .`
+- Apply formatting: `poly fmt --fix .`
+- Apply lint autofixes: `poly lint --fix .`
+
+## Configuration
+Per-repo `poly.toml`. Cache dir `.polylint/` (gitignored).
+
+## Severity
+`poly lint` exits non-zero only on error-severity findings; warnings don't fail CI.
+
+## CI
+Validation runs via `uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1`.
+
+Run `poly fmt --check .` and `poly lint .` after changes to verify compliance.
 
 ## Agents
 

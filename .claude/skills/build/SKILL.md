@@ -3,7 +3,7 @@ description: Build the project and report any errors
 name: build
 user_invocable: true
 # Content-Hash: blake3:5a5826b30b40843f383e43ffabe049702e40fec52b6dec1365db57e86ab6d22e
-# Source-Hash: blake3:5ccb1a15d869ec5baec434a10e4de8b72b04046651c9019fbcfa9f25e1931f93
+# Source-Hash: blake3:0f86e4e09edb8234079890e41ef9d7267d8dc4eb4b4bd99744a7b98510790e2a
 ---
 
 # Build
