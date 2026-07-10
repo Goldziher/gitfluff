@@ -94,7 +94,6 @@ async function install() {
     const binaryName = os.type() === "Windows_NT" ? "gitfluff.exe" : "gitfluff";
     const binaryPath = path.join(binDir, binaryName);
 
-    // Skip download if binary already exists (e.g., reinstall)
     if (fs.existsSync(binaryPath)) {
       return;
     }

@@ -288,7 +288,6 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     let outcome = lint_message(&message_data.text, &options);
 
     if outcome.cleanup_summaries.is_empty() {
-        // nothing to do
     } else if write_requested {
         for summary in &outcome.cleanup_summaries {
             reporter.info(format!("applied cleanup: {summary}"))?;
@@ -334,7 +333,6 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     if write_requested {
         apply_write(&message_data, &outcome.cleaned_message)?;
     } else if message_data.source == MessageSource::Literal && !active_violations.is_empty() {
-        // no-op, keep behavior simple
     }
 
     if active_violations.is_empty() {

@@ -98,7 +98,6 @@ def _cache_path(version: str) -> Path:
 def ensure_binary() -> str:
     from . import __version__
 
-    # Allow override via environment for power users/tests
     override = os.getenv("GITFLUFF_BINARY")
     if override:
         return override

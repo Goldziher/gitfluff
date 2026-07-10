@@ -1,7 +1,7 @@
 <!--
 🤖 AI-RULEZ :: GENERATED FILE — DO NOT EDIT DIRECTLY
 Project: gitfluff
-Generated: 2026-07-02 13:43:50
+Generated: 2026-07-08 15:53:27
 Source: .ai-rulez/config.toml
 Target: CLAUDE.md
 Content: rules=39, sections=0, agents=4
@@ -46,8 +46,8 @@ INSTRUCTIONS FOR AI AGENTS
    c. Commit both .ai-rulez/ and generated files
 
 Documentation: https://github.com/Goldziher/ai-rulez
-Content-Hash: blake3:059e4ee94c62229f5f967f0a89bb24be19057bb8ad6481d5dcb6a610ae39ca10
-Source-Hash: blake3:0f86e4e09edb8234079890e41ef9d7267d8dc4eb4b4bd99744a7b98510790e2a
+Content-Hash: blake3:2a73d7350f972114751e7c04a36a6eecc05e8e3709bb4cd713ada50152b2fe46
+Source-Hash: blake3:fcc670a9a88921c0753e4deec23b4b071acdcfc7d793c2805b6d916c3a7449fb
 -->
 
 # gitfluff
@@ -128,7 +128,7 @@ All commits in this repository **must** follow the [Conventional Commits 1.0.0](
 
 ## Format
 
-```
+```text
 <type>[optional scope][!]: <description>
 
 [optional body]
@@ -576,18 +576,22 @@ This sets up commit-msg validation (gitfluff).
 poly (polylint) is a single-binary, multi-language linter and formatter. It bundles engines (ruff, oxc, taplo, rumdl) and delegates to native tools (cargo fmt/clippy, golangci-lint, actionlint, shellcheck, shfmt) when present.
 
 ## Commands
+
 - Lint: `poly lint .`
 - Check formatting (dry-run): `poly fmt --check .`
 - Apply formatting: `poly fmt --fix .`
 - Apply lint autofixes: `poly lint --fix .`
 
 ## Configuration
+
 Per-repo `poly.toml`. Cache dir `.polylint/` (gitignored).
 
 ## Severity
+
 `poly lint` exits non-zero only on error-severity findings; warnings don't fail CI.
 
 ## CI
+
 Validation runs via `uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1`.
 
 Run `poly fmt --check .` and `poly lint .` after changes to verify compliance.
