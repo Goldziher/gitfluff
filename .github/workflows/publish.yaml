@@ -192,14 +192,14 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
+      # Node 24 bundles an npm new enough for --provenance. The previous pin to 20 plus a
+      # `npm install -g npm@latest` step broke the moment npm 12 raised its engine floor to
+      # node >=22.22.2; tracking npm@latest against a pinned node is a standing breakage.
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: "20"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
-
-      - name: Update npm
-        run: npm install -g npm@latest
 
       - name: Publish to npm
         env:
