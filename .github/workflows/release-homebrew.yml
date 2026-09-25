@@ -53,8 +53,11 @@ jobs:
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "Updating the Homebrew formula for $tag"
 
+      # v4 or newer is required: GitHub's /repos/{owner}/{repo}/tarball/{ref} endpoint now
+      # answers HEAD with 303, and the v3 build only accepted 302, so it aborted with
+      # "unexpected HTTP 303 response" before it could compute the archive checksum.
       - name: Update Homebrew formula
-        uses: mislav/bump-homebrew-formula-action@v3
+        uses: mislav/bump-homebrew-formula-action@v4
         with:
           formula-name: gitfluff
           formula-path: Formula/gitfluff.rb
