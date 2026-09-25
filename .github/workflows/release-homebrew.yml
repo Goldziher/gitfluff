@@ -62,7 +62,9 @@ jobs:
           # Required: the action otherwise derives the version from github.ref, which is a branch
           # ref (and so rejected) whenever this runs from a dispatch or a workflow_call.
           tag-name: ${{ steps.tag.outputs.tag }}
-          download-url: https://github.com/Goldziher/gitfluff/archive/${{ steps.tag.outputs.tag }}.tar.gz
+          # refs/tags/ form: `brew style` rejects a bare /archive/<tag>.tar.gz URL
+          # (FormulaAudit/Urls). Both resolve to the same codeload archive and hash.
+          download-url: https://github.com/Goldziher/gitfluff/archive/refs/tags/${{ steps.tag.outputs.tag }}.tar.gz
           commit-message: |
             {{formulaName}} {{version}}
 
