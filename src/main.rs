@@ -29,35 +29,69 @@ const AI_EXCLUDE_RULES: &[(&str, &str)] = &[
     ("🤖 Generated with", "Remove AI generation notices from commit messages"),
 ];
 
+/// Built-in cleanup rules for AI attribution.
+///
+/// Every rule is line-anchored with `(?m)` plus `^`/`$`: it may only ever match the specific
+/// trailer or banner line(s) it targets. A rule must never span arbitrary intervening lines,
+/// because doing so silently deletes the user's own body text.
 const AI_CLEANUP_RULES: &[(&str, &str, &str)] = &[
+    // The Claude Code banner wraps its markdown link across exactly two lines:
+    //   🤖 Generated with [Claude
+    //   Code](https://claude.com/claude-code)
+    // Both lines are spelled out so nothing between them can be swallowed. The second line
+    // tolerates trailing text after the URL: without that, this rule misses and the
+    // single-line banner rule below strips line 1 only, orphaning `Code](...)` in the body.
     (
-        "(?ims)\\n?\\s*(?:🤖\\s*)?Generated with.*?(?:Co-Authored-By:.*(?:Claude|Anthropic).*(?:\\n\\s*<[^>\\n]+>)?)+\\s*",
-        "\n",
-        "Remove Claude Code attribution block",
+        "(?mi)^[ \\t]*(?:🤖[ \\t]*)?Generated with \\[Claude[ \\t\\r]*\\n[ \\t]*Code\\]\\([^)\\r\\n]*\\)[^\\n]*$\\n?",
+        "",
+        "Remove wrapped Claude Code attribution banner",
     ),
-    ("(?m)^.*🤖 Generated with.*\n?", "", "Remove AI generation banner"),
     (
-        "(?mi)^Generated with Claude.*\n?",
+        "(?m)^[^\\n]*🤖 Generated with[^\\n]*$\\n?",
+        "",
+        "Remove AI generation banner",
+    ),
+    (
+        "(?mi)^[ \\t]*Generated with Claude[^\\n]*$\\n?",
         "",
         "Remove plain Claude generation banner",
     ),
+    // The trailer is optionally followed by a line holding only the bare `<email>`. That
+    // continuation must itself name an AI assistant: matching any `<...>` line swallowed
+    // unrelated footers such as a bare `<https://issue.example.com/123>`.
     (
-        "(?mi)^Co-Authored-By:.*(?:Claude|Anthropic).*\n?",
+        "(?mi)^[ \\t]*Co-Authored-By:[^\\n]*(?:Claude|Anthropic|ChatGPT|GPT|OpenAI)[^\\n]*$\\n?\
+         (?:[ \\t]*<[^>\\n]*(?:claude|anthropic|chatgpt|openai)[^>\\n]*>[ \\t\\r]*$\\n?)?",
         "",
         "Drop Co-Authored-By lines referencing AI assistants",
     ),
-    ("(?mi)^-\\s*Claude.*\n?", "", "Remove Claude bullet entries"),
-    ("(?s)\\A\\s*\n+", "", "Trim leading blank lines introduced by cleanup"),
+    // Only a bullet that is *nothing but* AI attribution, so a real body line such as
+    // `- Claude Monet gallery importer` survives.
     (
-        "(?s)\n\\s*\n\\z",
-        "\n",
-        "Trim trailing blank lines introduced by cleanup",
+        "(?mi)^[ \\t]*-[ \\t]*Claude(?:[ \\t]+(?:Code|AI|Sonnet|Opus|Haiku)(?:[ \\t]+[0-9][0-9.]*)?)?(?:[ \\t]*<[^>\\n]+>)?[ \\t\\r]*$\\n?",
+        "",
+        "Remove standalone Claude attribution bullets",
     ),
-    ("\n{3,}", "\n\n", "Collapse excessive blank lines"),
+    ("\\A\\s*\\n+", "", "Trim leading blank lines introduced by cleanup"),
+    ("\\n\\s*\\n\\z", "\n", "Trim trailing blank lines introduced by cleanup"),
+    ("\\n{3,}", "\n\n", "Collapse excessive blank lines"),
 ];
 
 const DEFAULT_TITLE_PREFIX_SEPARATOR: &str = " * ";
 const DEFAULT_TITLE_SUFFIX_SEPARATOR: &str = " ";
+
+/// Entries inside the git directory that mean git is composing the commit message itself
+/// (merge, revert, cherry-pick). Those messages are not hand authored, so linting them only
+/// blocks the operation.
+///
+/// Deliberately excludes `rebase-merge` and `rebase-apply`: those exist for the whole of an
+/// interactive rebase, so keying on them skipped every hook run during one -- including a
+/// `reword`, where the message *is* hand authored. The subjects git generates during a rebase
+/// are already covered by [`GENERATED_SUBJECT_PREFIXES`], which is checked first.
+const GIT_SEQUENCER_MARKERS: &[&str] = &["MERGE_HEAD", "REVERT_HEAD", "CHERRY_PICK_HEAD"];
+
+/// Subject prefixes git generates itself, for `git revert` and `git commit --fixup/--squash`.
+const GENERATED_SUBJECT_PREFIXES: &[&str] = &["Revert \"", "fixup! ", "squash! ", "amend! "];
 
 fn main() {
     let exit_code = match run() {
@@ -96,7 +130,15 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     let message_data = load_message(&args)?;
     let cwd = std::env::current_dir().context("failed to discover current directory")?;
 
-    if is_merge_commit_in_progress(&cwd) {
+    if has_generated_subject(&message_data.text) {
+        return Ok(0);
+    }
+
+    // The git-state skip is keyed on the working directory, so it must only apply when the
+    // message being linted really is that repository's pending commit message file. A
+    // `--message` string may well be a PR title validated from a checkout that happens to
+    // be mid-merge.
+    if matches!(message_data.source, MessageSource::File(_)) && git_sequencer_in_progress(&cwd) {
         return Ok(0);
     }
 
@@ -112,16 +154,31 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     let preset = resolve_preset(&preset_name).ok_or_else(|| anyhow!("unknown preset `{}`", preset_name))?;
 
     let mut enforce_spec = preset.enforce_spec;
+    let mut enforce_line_lengths = false;
+    let mut enforce_subject_style = false;
+    let mut custom_pattern_notice = None;
     let mut message_pattern = Some(build_message_pattern(
         preset.message_pattern,
         Some(preset.description.to_string()),
     )?);
 
-    if let Some((_, cfg)) = &loaded_config
+    if let Some((path, cfg)) = &loaded_config
         && let Some(rule) = &cfg.rules.message
     {
         message_pattern = Some(build_message_pattern(&rule.pattern, rule.description.clone())?);
         enforce_spec = false;
+        enforce_line_lengths = rule.enforce_length.unwrap_or(false);
+        enforce_subject_style = rule.enforce_case.unwrap_or(false);
+        // Held back until the lint actually fails. Printing it on every run buried a clean
+        // commit under a paragraph of text that only helps once something is rejected.
+        custom_pattern_notice = Some(format!(
+            "`[rules.message]` in {} replaces the Conventional Commits spec check: length checks \
+             are {}, case checks are {} (toggle with `enforce_length` / `enforce_case` under \
+             `[rules.message]`)",
+            path.display(),
+            on_off(enforce_line_lengths),
+            on_off(enforce_subject_style)
+        ));
     }
 
     if let Some(pattern) = &args.msg_pattern {
@@ -141,6 +198,8 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         message_pattern,
         body_policy: preset.body_policy,
         enforce_conventional_spec: enforce_spec,
+        enforce_line_lengths,
+        enforce_subject_style,
         ..Default::default()
     };
 
@@ -234,22 +293,39 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     if args.ascii_only {
         forbid_non_ascii = true;
     }
+    // Separators resolve independently of the patterns so that overriding only the pattern
+    // on the command line keeps the separator configured in the config file.
     if let Some(pattern) = &args.title_prefix {
         title_prefix_pattern = Some(pattern.clone());
-        title_prefix_separator = args.title_prefix_separator.clone();
+    }
+    if let Some(separator) = &args.title_prefix_separator {
+        title_prefix_separator = separator.clone();
     }
     if let Some(pattern) = &args.title_suffix {
         title_suffix_pattern = Some(pattern.clone());
-        title_suffix_separator = args.title_suffix_separator.clone();
+    }
+    if let Some(separator) = &args.title_suffix_separator {
+        title_suffix_separator = separator.clone();
     }
 
-    let write_requested = if args.write {
+    let mut write_requested = if args.write {
         true
     } else if let Some((_, cfg)) = &loaded_config {
         cfg.write.unwrap_or(false)
     } else {
         false
     };
+
+    // `--write` and `--message` conflict at the CLI level, so reaching this branch means
+    // `write` came from the config file. There is nowhere to persist a rewrite of a literal
+    // message, so the rewrite is skipped and the message is reported exactly as given.
+    if write_requested && message_data.source == MessageSource::Literal {
+        reporter.warn(
+            "`write` is ignored for `--message`: a literal message has nowhere to persist a \
+             rewrite, so violations are reported as-is",
+        )?;
+        write_requested = false;
+    }
 
     options.autofix = write_requested;
 
@@ -273,29 +349,25 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         options.title_suffix = Some(build_title_suffix_rule(pattern, &title_suffix_separator)?);
     }
 
-    for (pattern, message) in AI_EXCLUDE_RULES {
-        options
-            .exclude_rules
-            .push(build_exclude_rule(pattern, Some((*message).to_string()))?);
-    }
+    let ai_cleanup_enabled = !args.no_ai_cleanup
+        && loaded_config
+            .as_ref()
+            .and_then(|(_, cfg)| cfg.rules.ai_cleanup)
+            .unwrap_or(true);
 
-    for (find, replace, desc) in AI_CLEANUP_RULES {
-        options
-            .cleanup_rules
-            .push(build_cleanup_rule(find, replace, Some((*desc).to_string()))?);
+    if ai_cleanup_enabled {
+        push_builtin_ai_rules(&mut options)?;
     }
 
     let outcome = lint_message(&message_data.text, &options);
 
-    if outcome.cleanup_summaries.is_empty() {
-    } else if write_requested {
-        for summary in &outcome.cleanup_summaries {
-            reporter.info(format!("applied cleanup: {summary}"))?;
-        }
+    let summary_label = if write_requested {
+        "applied cleanup"
     } else {
-        for summary in &outcome.cleanup_summaries {
-            reporter.info(format!("cleanup available: {summary}"))?;
-        }
+        "cleanup available"
+    };
+    for summary in &outcome.cleanup_summaries {
+        reporter.info(format!("{summary_label}: {summary}"))?;
     }
 
     let active_violations = if write_requested {
@@ -328,11 +400,16 @@ fn run_lint(args: LintArgs) -> Result<i32> {
         &outcome.violations_before
     };
 
+    if let Some(notice) = &custom_pattern_notice
+        && !active_violations.is_empty()
+    {
+        reporter.info(notice)?;
+    }
+
     let did_rewrite = write_requested && outcome.cleaned_message != message_data.text;
 
     if write_requested {
         apply_write(&message_data, &outcome.cleaned_message)?;
-    } else if message_data.source == MessageSource::Literal && !active_violations.is_empty() {
     }
 
     if active_violations.is_empty() {
@@ -345,6 +422,28 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     } else {
         Ok(1)
     }
+}
+
+/// Renders a toggle state for diagnostics.
+fn on_off(enabled: bool) -> &'static str {
+    if enabled { "on" } else { "off" }
+}
+
+/// Registers the built-in AI attribution detection and cleanup rules.
+fn push_builtin_ai_rules(options: &mut LintOptions) -> Result<()> {
+    for (pattern, message) in AI_EXCLUDE_RULES {
+        options
+            .exclude_rules
+            .push(build_exclude_rule(pattern, Some((*message).to_string()))?);
+    }
+
+    for (find, replace, description) in AI_CLEANUP_RULES {
+        options
+            .cleanup_rules
+            .push(build_cleanup_rule(find, replace, Some((*description).to_string()))?);
+    }
+
+    Ok(())
 }
 
 fn apply_write(message: &MessageData, cleaned: &str) -> Result<()> {
@@ -397,26 +496,45 @@ fn load_message(args: &LintArgs) -> Result<MessageData> {
     Ok(MessageData { text, source })
 }
 
+/// Delimiter separating a regex from its custom message or replacement text.
+///
+/// A multi-character delimiter is required because a single `:` cannot be distinguished from
+/// the colon in regex constructs such as `(?:...)` or `(?i)`, which silently truncated the
+/// pattern. An argument without the delimiter is therefore taken to be the whole regex.
+const RULE_ARG_DELIMITER: &str = "->";
+
 fn parse_exclude_arg(raw: &str) -> Result<(String, Option<String>)> {
-    if let Some((pattern, message)) = raw.split_once(':') {
-        if message.is_empty() {
-            Ok((pattern.to_string(), None))
-        } else {
-            Ok((pattern.to_string(), Some(message.to_string())))
+    let (pattern, message) = match raw.split_once(RULE_ARG_DELIMITER) {
+        Some((pattern, message)) => {
+            let message = message.trim();
+            (pattern, (!message.is_empty()).then(|| message.to_string()))
         }
-    } else {
-        Ok((raw.to_string(), None))
+        None => (raw, None),
+    };
+
+    if pattern.trim().is_empty() {
+        return Err(anyhow!(
+            "exclude argument must be `REGEX` or `REGEX{RULE_ARG_DELIMITER}MESSAGE` with a non-empty regex (got `{raw}`)"
+        ));
     }
+
+    Ok((pattern.to_string(), message))
 }
 
 fn parse_cleanup_arg(raw: &str) -> Result<(String, String)> {
-    if let Some((find, replace)) = raw.split_once("->") {
-        Ok((find.to_string(), replace.to_string()))
-    } else {
-        Err(anyhow!(
-            "cleanup argument must use `find->replace` format (got `{raw}`)"
-        ))
+    let Some((find, replace)) = raw.split_once(RULE_ARG_DELIMITER) else {
+        return Err(anyhow!(
+            "cleanup argument must use `FIND{RULE_ARG_DELIMITER}REPLACE` format (got `{raw}`)"
+        ));
+    };
+
+    if find.trim().is_empty() {
+        return Err(anyhow!(
+            "cleanup argument must use `FIND{RULE_ARG_DELIMITER}REPLACE` format with a non-empty regex (got `{raw}`)"
+        ));
     }
+
+    Ok((find.to_string(), replace.to_string()))
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -435,7 +553,7 @@ enum MessageSource {
 fn format_error(err: &anyhow::Error) -> String {
     let mut msg = err.to_string();
     for cause in err.chain().skip(1) {
-        msg.push_str(&format!("\n  caused by: {}", cause));
+        msg.push_str(&format!("\n  caused by: {cause}"));
     }
     msg
 }
@@ -521,23 +639,37 @@ impl Ansi {
     }
 }
 
-fn is_merge_commit_in_progress(start_dir: &std::path::Path) -> bool {
+/// Returns `true` when the commit subject is one git generated itself, such as a revert or a
+/// `fixup!`/`squash!` marker. Those subjects cannot satisfy a commit format and are rewritten
+/// by git anyway once the rebase or revert completes.
+fn has_generated_subject(message: &str) -> bool {
+    let subject = message.lines().next().unwrap_or("");
+    GENERATED_SUBJECT_PREFIXES
+        .iter()
+        .any(|prefix| subject.starts_with(prefix))
+}
+
+/// Returns `true` when git is mid-merge, mid-revert, mid-cherry-pick or mid-rebase in the
+/// repository containing `start_dir`.
+fn git_sequencer_in_progress(start_dir: &std::path::Path) -> bool {
+    match find_git_dir(start_dir) {
+        Some(git_dir) => GIT_SEQUENCER_MARKERS.iter().any(|marker| git_dir.join(marker).exists()),
+        None => false,
+    }
+}
+
+/// Walks up from `start_dir` to the nearest git directory, resolving worktree `.git` files.
+fn find_git_dir(start_dir: &std::path::Path) -> Option<std::path::PathBuf> {
     let mut current = start_dir;
     loop {
         let git_dir = current.join(".git");
         if git_dir.is_dir() {
-            return git_dir.join("MERGE_HEAD").exists();
+            return Some(git_dir);
         }
         if git_dir.is_file() {
-            if let Ok(resolved) = resolve_gitdir_file(&git_dir) {
-                return resolved.join("MERGE_HEAD").exists();
-            }
-            return false;
+            return resolve_gitdir_file(&git_dir).ok();
         }
-        match current.parent() {
-            Some(parent) => current = parent,
-            None => return false,
-        }
+        current = current.parent()?;
     }
 }
 

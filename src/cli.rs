@@ -52,7 +52,9 @@ pub struct LintArgs {
         long = "msg-pattern",
         alias = "message-pattern",
         value_name = "REGEX",
-        help = "Override the Conventional Commits check with a custom regex."
+        help = "Override the Conventional Commits check with a custom regex. The regex is \
+                searched for anywhere in the title line (after any required prefix/suffix is \
+                stripped), so anchor it with ^ and $ to require a full-title match."
     )]
     pub msg_pattern: Option<String>,
 
@@ -60,10 +62,23 @@ pub struct LintArgs {
     #[arg(long = "msg-pattern-description", alias = "message-description", value_name = "TEXT")]
     pub msg_pattern_description: Option<String>,
 
-    #[arg(long)]
+    /// Reject commit messages matching a regex, optionally with a custom error message.
+    #[arg(
+        long,
+        value_name = "REGEX[->MESSAGE]",
+        help = "Reject messages matching REGEX. Append `->MESSAGE` to supply a custom error \
+                text; without it the whole argument is the regex, so colons in constructs \
+                like (?:...) and (?i) are safe."
+    )]
     pub exclude: Vec<String>,
 
-    #[arg(long)]
+    /// Rewrite matches of a regex, as `FIND->REPLACE`.
+    #[arg(
+        long,
+        value_name = "FIND->REPLACE",
+        help = "Rewrite matches of the FIND regex with REPLACE. The `->` delimiter is \
+                required; REPLACE may be empty to delete matches."
+    )]
     pub cleanup: Vec<String>,
 
     /// Regex used to sanitize commit messages (replacement defaults to empty).
@@ -88,32 +103,30 @@ pub struct LintArgs {
     #[arg(long = "title-prefix", value_name = "REGEX")]
     pub title_prefix: Option<String>,
 
-    /// Literal separator between the required title prefix and the Conventional Commit title.
-    #[arg(
-        long = "title-prefix-separator",
-        value_name = "TEXT",
-        default_value = " * ",
-        requires = "title_prefix"
-    )]
-    pub title_prefix_separator: String,
+    /// Literal separator between the required title prefix and the Conventional Commit
+    /// title. Falls back to the config file value, then to " * ".
+    #[arg(long = "title-prefix-separator", value_name = "TEXT")]
+    pub title_prefix_separator: Option<String>,
 
     /// Require a title suffix that matches this regex after the Conventional Commit title.
     #[arg(long = "title-suffix", value_name = "REGEX")]
     pub title_suffix: Option<String>,
 
     /// Literal separator between the Conventional Commit title and the required suffix.
-    #[arg(
-        long = "title-suffix-separator",
-        value_name = "TEXT",
-        default_value = " ",
-        requires = "title_suffix"
-    )]
-    pub title_suffix_separator: String,
+    /// Falls back to the config file value, then to " ".
+    #[arg(long = "title-suffix-separator", value_name = "TEXT")]
+    pub title_suffix_separator: Option<String>,
+
+    /// Disable the built-in detection and cleanup of AI attribution trailers and banners.
+    #[arg(long = "no-ai-cleanup")]
+    pub no_ai_cleanup: bool,
 
     #[arg(long)]
     pub config: Option<PathBuf>,
 
-    #[arg(long)]
+    /// Rewrite the commit message in place. Not available with `--message`, which has
+    /// nowhere to persist the rewrite.
+    #[arg(long, conflicts_with = "message")]
     pub write: bool,
 
     /// Control ANSI color output (auto uses TTY detection).

@@ -122,7 +122,8 @@ fn lint_applies_cleanup_with_write_flag() {
         .stderr(predicate::str::contains("Remove AI co-author attribution lines"))
         .stderr(predicate::str::contains("Remove AI generation notices"))
         .stderr(predicate::str::contains("applied cleanup"))
-        .stderr(predicate::str::contains("Remove Claude Code attribution block"));
+        .stderr(predicate::str::contains("Remove AI generation banner"))
+        .stderr(predicate::str::contains("Remove standalone Claude attribution bullets"));
 
     let rewritten = fs::read_to_string(&msg_path).unwrap();
     assert_eq!(rewritten.trim_end(), "feat: add login");
@@ -982,6 +983,526 @@ fn ai_cleanup_removes_claude_signature_variants() {
         let cleaned = fs::read_to_string(&msg_path).unwrap();
         assert_eq!(cleaned.trim_end(), "feat: keep login");
     }
+}
+
+#[test]
+fn ai_cleanup_preserves_body_text_between_banner_and_trailer() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(
+        &msg_path,
+        "feat: add thing\n\nGenerated with protoc 3.21\n\nIMPORTANT: do not revert this without asking ops.\n\nCo-Authored-By: Claude <a@b.c>\n",
+    );
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--write", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    let cleaned = fs::read_to_string(&msg_path).unwrap();
+    assert_eq!(
+        cleaned, "feat: add thing\n\nGenerated with protoc 3.21\n\nIMPORTANT: do not revert this without asking ops.\n",
+        "only the AI trailer line may be removed"
+    );
+}
+
+#[test]
+fn ai_cleanup_keeps_a_bare_bracketed_footer_after_an_ai_trailer() {
+    // The trailer's optional continuation line used to match any `<...>`-only line, so a bare
+    // link footer following an AI co-author was deleted along with it.
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(
+        &msg_path,
+        "feat: add thing\n\nBody.\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n<https://issue.example.com/123>\n",
+    );
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--write", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    let cleaned = fs::read_to_string(&msg_path).unwrap();
+    assert_eq!(
+        cleaned, "feat: add thing\n\nBody.\n\n<https://issue.example.com/123>\n",
+        "a bare link footer is not part of the AI trailer"
+    );
+}
+
+#[test]
+fn ai_cleanup_removes_a_wrapped_trailer_whose_email_is_on_the_next_line() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(
+        &msg_path,
+        "feat: add thing\n\nBody.\n\nCo-Authored-By: Claude\n<noreply@anthropic.com>\n",
+    );
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--write", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    let cleaned = fs::read_to_string(&msg_path).unwrap();
+    assert_eq!(cleaned, "feat: add thing\n\nBody.\n");
+}
+
+#[test]
+fn ai_cleanup_leaves_no_remnant_when_the_wrapped_banner_has_trailing_text() {
+    // The wrapped-banner rule required the URL to end the line. When it did not, that rule
+    // missed and the single-line rule stripped only line 1, orphaning `Code](...)` in the body.
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(
+        &msg_path,
+        "feat: add thing\n\nBody.\n\n\u{1f916} Generated with [Claude\nCode](https://claude.com/claude-code) (Sonnet 4.5)\n",
+    );
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--write", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    let cleaned = fs::read_to_string(&msg_path).unwrap();
+    assert_eq!(cleaned, "feat: add thing\n\nBody.\n");
+}
+
+#[test]
+fn ai_cleanup_keeps_bullets_that_merely_start_with_claude() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(
+        &msg_path,
+        "feat: add importers\n\n- Claude Monet gallery importer\n- Claude\n- Claude Code\n- Other thing\n",
+    );
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--write", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    let cleaned = fs::read_to_string(&msg_path).unwrap();
+    assert_eq!(
+        cleaned,
+        "feat: add importers\n\n- Claude Monet gallery importer\n- Other thing\n"
+    );
+}
+
+#[test]
+fn ai_cleanup_can_be_disabled_by_flag_and_by_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add login\n\nCo-Authored-By: Claude <a@b.c>\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("Remove AI co-author attribution lines"));
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--no-ai-cleanup", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success()
+        .stderr(predicate::str::is_empty());
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        "preset = \"conventional\"\n\n[rules]\nai_cleanup = false\n",
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success()
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn exclude_argument_keeps_colons_inside_the_regex() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add login\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--exclude", "(?:wip|tmp)", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--exclude", "(?i)FEAT", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "Commit message matches excluded pattern `(?i)FEAT`",
+        ));
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--exclude", "(?i)feat->no feat commits please", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("no feat commits please"));
+}
+
+#[test]
+fn rule_arguments_reject_an_empty_regex_and_echo_the_raw_argument() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add login\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--exclude=->missing regex", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "exclude argument must be `REGEX` or `REGEX->MESSAGE` with a non-empty regex (got `->missing regex`)",
+        ));
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--cleanup=->replacement", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "cleanup argument must use `FIND->REPLACE` format with a non-empty regex (got `->replacement`)",
+        ));
+}
+
+#[test]
+fn lint_skips_git_generated_commit_states() {
+    for marker in ["MERGE_HEAD", "REVERT_HEAD", "CHERRY_PICK_HEAD"] {
+        let dir = tempdir().unwrap();
+        let msg_path = dir.path().join("msg.txt");
+        write_message(&msg_path, "not a conventional commit at all\n");
+        fs::create_dir_all(dir.path().join(".git")).unwrap();
+        fs::write(dir.path().join(".git").join(marker), "deadbeef").unwrap();
+
+        cargo::cargo_bin_cmd!("gitfluff")
+            .args(["lint", "--from-file"])
+            .arg(&msg_path)
+            .current_dir(dir.path())
+            .assert()
+            .success();
+    }
+}
+
+#[test]
+fn lint_still_checks_a_reworded_message_during_an_interactive_rebase() {
+    // `rebase-merge`/`rebase-apply` live for the whole rebase, so keying the skip on them
+    // silently disabled the hook for `reword`, where the message is hand authored.
+    for sequencer_dir in ["rebase-merge", "rebase-apply"] {
+        let dir = tempdir().unwrap();
+        let msg_path = dir.path().join("msg.txt");
+        write_message(&msg_path, "not a conventional commit at all\n");
+        fs::create_dir_all(dir.path().join(".git").join(sequencer_dir)).unwrap();
+
+        cargo::cargo_bin_cmd!("gitfluff")
+            .args(["lint", "--from-file"])
+            .arg(&msg_path)
+            .current_dir(dir.path())
+            .assert()
+            .failure()
+            .stderr(predicate::str::contains("type may not be empty"));
+    }
+
+    // A subject git generated itself is still exempt, rebase or not.
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "fixup! feat: add login\n");
+    fs::create_dir_all(dir.path().join(".git").join("rebase-merge")).unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+}
+
+#[test]
+fn lint_exempts_revert_fixup_and_squash_subjects() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+
+    for subject in [
+        "Revert \"feat: add login\"\n\nThis reverts commit deadbeef.\n",
+        "fixup! feat: add login\n",
+        "squash! feat: add login\n",
+        "amend! feat: add login\n",
+    ] {
+        write_message(&msg_path, subject);
+        cargo::cargo_bin_cmd!("gitfluff")
+            .args(["lint", "--from-file"])
+            .arg(&msg_path)
+            .assert()
+            .success()
+            .stderr(predicate::str::is_empty());
+    }
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--message", "Revert \"feat: add login\""])
+        .assert()
+        .success();
+}
+
+#[test]
+fn lint_does_not_skip_a_literal_message_while_a_merge_is_in_progress() {
+    let dir = tempdir().unwrap();
+    fs::create_dir_all(dir.path().join(".git")).unwrap();
+    fs::write(dir.path().join(".git").join("MERGE_HEAD"), "deadbeef").unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--message", "garbage title without a type"])
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains("type may not be empty"));
+}
+
+#[test]
+fn lint_rejects_unknown_config_keys() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "feat: add launch \u{1F680}\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        "preset = \"conventional\"\n\n[rules]\nno_emoji = true\n",
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("unknown field `no_emoji`"));
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        "preset = \"conventional\"\n\n[rules.mesage]\npattern = \"^X\"\n",
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains("unknown field `mesage`"));
+}
+
+#[test]
+fn message_rule_announces_that_it_replaces_the_spec_check_only_when_the_lint_fails() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        "[rules.message]\npattern = \"^[A-Z]+-[0-9]+: .+$\"\n",
+    )
+    .unwrap();
+
+    write_message(&msg_path, "nope\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "replaces the Conventional Commits spec check: length checks are off, case checks are off",
+        ));
+
+    // A clean commit must stay silent: this ran on every hook invocation before, burying a
+    // passing commit under a paragraph that only helps when something is rejected.
+    write_message(&msg_path, "ABC-1: do thing\n");
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success()
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn message_rule_can_opt_back_into_length_and_case_checks() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "Add Login Button To Page\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        "[rules.message]\npattern = \"^.+$\"\nenforce_case = true\n",
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "subject must not be sentence-case, start-case, pascal-case, upper-case",
+        ));
+
+    write_message(&msg_path, format!("{}\n", "x".repeat(105)));
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        "[rules.message]\npattern = \"^.+$\"\nenforce_length = true\n",
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "title line must not be longer than 100 characters, current length is 105",
+        ));
+}
+
+#[test]
+fn write_conflicts_with_a_literal_message() {
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--write", "--message", "feat: add login"])
+        .assert()
+        .code(2)
+        .stderr(predicate::str::contains(
+            "the argument '--write' cannot be used with '--message",
+        ));
+}
+
+#[test]
+fn config_write_is_a_no_op_for_a_literal_message_and_still_fails() {
+    let dir = tempdir().unwrap();
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        "preset = \"conventional\"\nwrite = true\n",
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--message", "feat: add login\n\nCo-Authored-By: Claude <a@b.c>"])
+        .current_dir(dir.path())
+        .assert()
+        .failure()
+        .stdout(predicate::str::is_empty())
+        .stderr(predicate::str::contains("`write` is ignored for `--message`"))
+        .stderr(predicate::str::contains("Remove AI co-author attribution lines"));
+}
+
+#[test]
+fn title_length_counts_the_required_prefix() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, format!("PROJ-123 * fix: {}\n", "a".repeat(90)));
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--title-prefix", "PROJ-[0-9]+", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .failure()
+        .stderr(predicate::str::contains(
+            "title line must not be longer than 100 characters, current length is 106",
+        ));
+}
+
+#[test]
+fn unanchored_message_pattern_is_reported_as_a_warning() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "chore: rename the feat: helper\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--msg-pattern", "feat: ", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success()
+        .stderr(predicate::str::contains(
+            "message pattern `feat: ` is not anchored, so it matches anywhere in the title line",
+        ));
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--msg-pattern", "^chore: .+$", "--from-file"])
+        .arg(&msg_path)
+        .assert()
+        .success()
+        .stderr(predicate::str::is_empty());
+}
+
+#[test]
+fn cli_title_prefix_override_keeps_the_separator_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    write_message(&msg_path, "PROJ-123::feat: add login\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+title_prefix = "CFG-[0-9]+"
+title_prefix_separator = "::"
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--title-prefix", "PROJ-[0-9]+", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
+}
+
+#[test]
+fn cli_title_suffix_override_keeps_the_separator_from_config() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    // The config separator must not be replaced by clap's default of a single space, which a
+    // ` PROJ-123` ending would satisfy by accident.
+    write_message(&msg_path, "feat: add login::PROJ-123\n");
+
+    fs::write(
+        dir.path().join(".gitfluff.toml"),
+        r#"
+preset = "conventional"
+
+[rules]
+title_suffix = "CFG-[0-9]+"
+title_suffix_separator = "::"
+"#,
+    )
+    .unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--title-suffix", "PROJ-[0-9]+", "--from-file"])
+        .arg(&msg_path)
+        .current_dir(dir.path())
+        .assert()
+        .success();
 }
 
 #[test]
