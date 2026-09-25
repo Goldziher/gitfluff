@@ -1,10 +1,19 @@
 use anyhow::{Context, Result};
 use regex::Regex;
 
+/// Maximum number of characters allowed in the commit title line.
+const MAX_TITLE_LENGTH: usize = 100;
+/// Maximum number of characters allowed in a body or footer line.
+const MAX_LINE_LENGTH: usize = 100;
+
 #[derive(Debug, Clone)]
 pub struct MessagePattern {
     pub regex: Regex,
     pub description: Option<String>,
+    pub pattern_source: String,
+    /// `true` when the pattern is bounded at both ends, so it can only match the whole
+    /// title. Unanchored patterns match anywhere in the title, which is rarely intended.
+    pub anchored: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -44,6 +53,11 @@ pub struct LintOptions {
     pub cleanup_rules: Vec<CleanupRule>,
     pub body_policy: BodyPolicy,
     pub enforce_conventional_spec: bool,
+    /// Enforce the title/body/footer length limits even when the full spec check is disabled.
+    pub enforce_line_lengths: bool,
+    /// Enforce subject case and trailing-full-stop rules even when the full spec check is
+    /// disabled. Applied to the whole title line once prefixes and suffixes are stripped.
+    pub enforce_subject_style: bool,
     pub autofix: bool,
     pub forbid_emojis: bool,
     pub forbid_non_ascii: bool,
@@ -116,13 +130,22 @@ fn evaluate_message(message: &str, options: &LintOptions) -> (Vec<String>, Vec<S
 
     if !options.enforce_conventional_spec
         && let Some(pattern) = &options.message_pattern
-        && !pattern.regex.is_match(title_core.trim())
     {
-        let desc = pattern
-            .description
-            .as_deref()
-            .unwrap_or("Commit title does not match required pattern");
-        violations.push(desc.to_string());
+        if !pattern.anchored {
+            warnings.push(format!(
+                "message pattern `{}` is not anchored, so it matches anywhere in the title line; \
+                 add `^` and `$` to require a full-title match",
+                pattern.pattern_source
+            ));
+        }
+
+        if !pattern.regex.is_match(title_core.trim()) {
+            let desc = pattern
+                .description
+                .as_deref()
+                .unwrap_or("Commit title does not match required pattern");
+            violations.push(desc.to_string());
+        }
     }
 
     if options.enforce_conventional_spec {
@@ -132,9 +155,55 @@ fn evaluate_message(message: &str, options: &LintOptions) -> (Vec<String>, Vec<S
         warnings.append(&mut warns);
     } else {
         violations.extend(validate_body_policy(message, options.body_policy));
+
+        if options.enforce_line_lengths {
+            violations.extend(validate_title_length(title_line));
+            let rest: Vec<&str> = normalized.split('\n').skip(1).collect();
+            let (body_lines, footer_lines, _) = split_body_and_footer(&rest);
+            violations.extend(validate_line_lengths(&body_lines, "body"));
+            violations.extend(validate_line_lengths(&footer_lines, "footer"));
+        }
+
+        if options.enforce_subject_style {
+            violations.extend(validate_subject_style(title_core));
+        }
     }
 
     (violations, warnings)
+}
+
+/// Reports a violation when the title line exceeds [`MAX_TITLE_LENGTH`] characters.
+fn validate_title_length(title_line: &str) -> Option<String> {
+    let title_len = title_line.chars().count();
+    (title_len > MAX_TITLE_LENGTH).then(|| {
+        format!("title line must not be longer than {MAX_TITLE_LENGTH} characters, current length is {title_len}")
+    })
+}
+
+/// Reports a violation when any non-blank line in `lines` exceeds [`MAX_LINE_LENGTH`].
+fn validate_line_lengths(lines: &[&str], section: &str) -> Option<String> {
+    let too_long = lines
+        .iter()
+        .filter(|line| !line.trim().is_empty())
+        .any(|line| line.chars().count() > MAX_LINE_LENGTH);
+    too_long.then(|| format!("{section}'s lines must not be longer than {MAX_LINE_LENGTH} characters"))
+}
+
+/// Reports trailing-full-stop and disallowed-case violations for a non-empty subject.
+fn validate_subject_style(subject: &str) -> Vec<String> {
+    let subject_trimmed = subject.trim();
+    if subject_trimmed.is_empty() {
+        return Vec::new();
+    }
+
+    let mut violations = Vec::new();
+    if subject_trimmed.ends_with('.') {
+        violations.push("subject may not end with full stop".to_string());
+    }
+    if is_disallowed_subject_case(subject_trimmed) {
+        violations.push("subject must not be sentence-case, start-case, pascal-case, upper-case".to_string());
+    }
+    violations
 }
 
 fn strip_title_affixes<'a>(title_line: &'a str, options: &LintOptions, violations: &mut Vec<String>) -> &'a str {
@@ -326,7 +395,34 @@ fn detect_footer_start(lines: &[&str]) -> Option<usize> {
 
 pub fn build_message_pattern(pattern: &str, description: Option<String>) -> Result<MessagePattern> {
     let regex = Regex::new(pattern).with_context(|| format!("invalid message pattern regex `{pattern}`"))?;
-    Ok(MessagePattern { regex, description })
+    Ok(MessagePattern {
+        regex,
+        description,
+        pattern_source: pattern.to_string(),
+        anchored: is_fully_anchored(pattern),
+    })
+}
+
+/// Returns `true` when `pattern` is anchored at both ends and therefore can only match the
+/// entire title. Leading inline flag groups such as `(?i)` are skipped.
+fn is_fully_anchored(pattern: &str) -> bool {
+    let mut start = pattern;
+    while let Some(after_open) = start.strip_prefix("(?") {
+        let Some(close) = after_open.find(')') else { break };
+        let flags = &after_open[..close];
+        if flags.is_empty()
+            || !flags
+                .chars()
+                .all(|c| matches!(c, 'i' | 'm' | 's' | 'x' | 'u' | 'R' | '-'))
+        {
+            break;
+        }
+        start = &after_open[close + 1..];
+    }
+
+    let starts_anchored = start.starts_with('^') || start.starts_with("\\A");
+    let ends_anchored = pattern.ends_with('$') || pattern.ends_with("\\z");
+    starts_anchored && ends_anchored
 }
 
 pub fn build_exclude_rule(pattern: &str, message: Option<String>) -> Result<ExcludeRule> {
@@ -420,12 +516,12 @@ fn parse_footer_line(line: &str) -> Option<FooterEntry> {
         return None;
     }
 
-    let (idx, sep_len) = if let Some(idx) = line.find(": ") {
-        (idx, 2)
-    } else if let Some(idx) = line.find(" #") {
-        (idx, 2)
-    } else {
-        return None;
+    /// Both recognised footer separators (`": "` and `" #"`) are two characters wide.
+    const SEPARATOR_LEN: usize = 2;
+
+    let idx = match line.find(": ") {
+        Some(idx) => idx,
+        None => line.find(" #")?,
     };
 
     if idx == 0 {
@@ -445,7 +541,7 @@ fn parse_footer_line(line: &str) -> Option<FooterEntry> {
         return None;
     }
 
-    let value = line[(idx + sep_len)..].to_string();
+    let value = line[(idx + SEPARATOR_LEN)..].to_string();
     Some(FooterEntry { token, value })
 }
 
@@ -463,12 +559,9 @@ fn validate_conventional_commitlint_rules(
     let rest: Vec<&str> = lines.collect();
     let title_line = title_override.unwrap_or(first_line);
 
-    let title_len = title_line.chars().count();
-    if title_len > 100 {
-        errors.push(format!(
-            "title line must not be longer than 100 characters, current length is {title_len}"
-        ));
-    }
+    // Length is measured against the full title the user actually typed, so a configured
+    // `title_prefix` never silently raises the effective limit.
+    errors.extend(validate_title_length(first_line));
 
     let title_re = Regex::new(r"^(\w*)(?:\((.*)\))?!?: (.*)$").expect("valid conventional title regex");
     let (ty, subject) = title_re
@@ -488,13 +581,7 @@ fn validate_conventional_commitlint_rules(
     if subject.trim().is_empty() {
         errors.push("subject may not be empty".to_string());
     } else {
-        let subject_trimmed = subject.trim();
-        if subject_trimmed.ends_with('.') {
-            errors.push("subject may not end with full stop".to_string());
-        }
-        if is_disallowed_subject_case(subject_trimmed) {
-            errors.push("subject must not be sentence-case, start-case, pascal-case, upper-case".to_string());
-        }
+        errors.append(&mut validate_subject_style(subject));
     }
 
     if ty.trim().is_empty() {
@@ -530,21 +617,8 @@ fn validate_conventional_commitlint_rules(
         }
     }
 
-    if body_lines
-        .iter()
-        .filter(|line| !line.trim().is_empty())
-        .any(|line| line.chars().count() > 100)
-    {
-        errors.push("body's lines must not be longer than 100 characters".to_string());
-    }
-
-    if footer_lines
-        .iter()
-        .filter(|line| !line.trim().is_empty())
-        .any(|line| line.chars().count() > 100)
-    {
-        errors.push("footer's lines must not be longer than 100 characters".to_string());
-    }
+    errors.extend(validate_line_lengths(&body_lines, "body"));
+    errors.extend(validate_line_lengths(&footer_lines, "footer"));
 
     let footers = parse_footer_entries(&footer_lines);
     for footer in &footers {
@@ -569,15 +643,13 @@ fn validate_conventional_commitlint_rules(
 
         if token_trimmed.chars().any(|c| c.is_whitespace()) {
             errors.push(format!(
-                "Footer token `{}` must use hyphen in place of whitespace",
-                token_trimmed
+                "Footer token `{token_trimmed}` must use hyphen in place of whitespace"
             ));
         }
 
         if !token_trimmed.chars().all(|c| c.is_ascii_alphanumeric() || c == '-') {
             errors.push(format!(
-                "Footer token `{}` must use alphanumeric characters or hyphen",
-                token_trimmed
+                "Footer token `{token_trimmed}` must use alphanumeric characters or hyphen"
             ));
         }
     }
@@ -1013,6 +1085,110 @@ mod tests {
             "expected no violations, got {:?}",
             outcome.violations_before
         );
+    }
+
+    #[test]
+    fn title_length_is_measured_on_the_full_title_not_the_stripped_one() {
+        let mut options = LintOptions::default();
+        options.enforce_conventional_spec = true;
+        options.title_prefix = Some(build_title_prefix_rule("PROJ-[0-9]+", " * ").unwrap());
+
+        let subject = "a".repeat(90);
+        let title = format!("PROJ-123 * fix: {subject}");
+        assert_eq!(
+            title.chars().count(),
+            106,
+            "fixture must exceed the 100 character limit"
+        );
+
+        let outcome = lint_message(&title, &options);
+        assert!(
+            outcome
+                .violations_before
+                .contains(&"title line must not be longer than 100 characters, current length is 106".to_string()),
+            "expected the length violation to count the prefix, got {:?}",
+            outcome.violations_before
+        );
+    }
+
+    #[test]
+    fn warns_when_message_pattern_is_not_anchored() {
+        let mut options = LintOptions::default();
+        options.message_pattern = Some(build_message_pattern("feat: ", None).unwrap());
+
+        let outcome = lint_message("chore: rename feat: helper", &options);
+        assert_eq!(
+            outcome.warnings_before,
+            vec![
+                "message pattern `feat: ` is not anchored, so it matches anywhere in the title line; \
+                 add `^` and `$` to require a full-title match"
+                    .to_string()
+            ]
+        );
+        assert_eq!(outcome.violations_before, Vec::<String>::new());
+    }
+
+    #[test]
+    fn does_not_warn_when_message_pattern_is_anchored() {
+        for pattern in ["^feat: .+$", "(?i)^feat: .+$", "\\Afeat: .+\\z"] {
+            let mut options = LintOptions::default();
+            options.message_pattern = Some(build_message_pattern(pattern, None).unwrap());
+            let outcome = lint_message("feat: add login", &options);
+            assert_eq!(
+                outcome.warnings_before,
+                Vec::<String>::new(),
+                "pattern `{pattern}` should count as anchored"
+            );
+        }
+    }
+
+    #[test]
+    fn enforces_length_limits_without_the_full_spec_check() {
+        let mut options = LintOptions::default();
+        options.message_pattern = Some(build_message_pattern("^.+$", None).unwrap());
+        options.enforce_line_lengths = true;
+
+        let long_title = "x".repeat(105);
+        let outcome = lint_message(&long_title, &options);
+        assert_eq!(
+            outcome.violations_before,
+            vec!["title line must not be longer than 100 characters, current length is 105".to_string()]
+        );
+
+        let long_body = format!("short title\n\n{}", "y".repeat(101));
+        let body_outcome = lint_message(&long_body, &options);
+        assert_eq!(
+            body_outcome.violations_before,
+            vec!["body's lines must not be longer than 100 characters".to_string()]
+        );
+    }
+
+    #[test]
+    fn enforces_subject_style_without_the_full_spec_check() {
+        let mut options = LintOptions::default();
+        options.message_pattern = Some(build_message_pattern("^.+$", None).unwrap());
+        options.enforce_subject_style = true;
+
+        let outcome = lint_message("Add Login Button To Page", &options);
+        assert_eq!(
+            outcome.violations_before,
+            vec!["subject must not be sentence-case, start-case, pascal-case, upper-case".to_string()]
+        );
+
+        let ok = lint_message("add login button", &options);
+        assert_eq!(ok.violations_before, Vec::<String>::new());
+    }
+
+    #[test]
+    fn length_and_case_checks_stay_off_by_default_without_the_spec_check() {
+        let mut options = LintOptions::default();
+        options.message_pattern = Some(build_message_pattern("^.+$", None).unwrap());
+
+        let outcome = lint_message(&"x".repeat(105), &options);
+        assert_eq!(outcome.violations_before, Vec::<String>::new());
+
+        let cased = lint_message("Add Login Button To Page", &options);
+        assert_eq!(cased.violations_before, Vec::<String>::new());
     }
 
     #[test]

@@ -4,8 +4,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
+/// Every config struct denies unknown fields: a misspelled key such as `no_emoji` would
+/// otherwise silently disable the rule the user meant to enable.
 #[derive(Debug, Deserialize, Default)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct FileConfig {
     pub preset: Option<String>,
     pub write: Option<bool>,
@@ -13,7 +15,7 @@ pub struct FileConfig {
 }
 
 #[derive(Debug, Deserialize, Default)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct RulesConfig {
     pub message: Option<MessageRuleConfig>,
     pub excludes: Vec<ExcludeRuleConfig>,
@@ -27,21 +29,35 @@ pub struct RulesConfig {
     pub title_prefix_separator: Option<String>,
     pub title_suffix: Option<String>,
     pub title_suffix_separator: Option<String>,
+    /// Set to `false` to disable the built-in detection and cleanup of AI attribution
+    /// trailers and banners. Defaults to `true`.
+    pub ai_cleanup: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct MessageRuleConfig {
+    /// Regex the title line must match. It is applied with an unanchored search, so add
+    /// `^` and `$` to require a full-title match.
     pub pattern: String,
     pub description: Option<String>,
+    /// Keep the Conventional Commits length limits even though `pattern` replaces the
+    /// spec's structural check.
+    pub enforce_length: Option<bool>,
+    /// Keep the Conventional Commits subject case and trailing-full-stop checks even
+    /// though `pattern` replaces the spec's structural check.
+    pub enforce_case: Option<bool>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct ExcludeRuleConfig {
     pub pattern: String,
     pub message: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
+#[serde(deny_unknown_fields)]
 pub struct CleanupRuleConfig {
     pub find: String,
     pub replace: String,
