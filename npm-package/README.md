@@ -2,7 +2,7 @@
 
 Commit message linter with presets, custom formats, and cleanup automation. Fully compliant with [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Skips linting while Git is creating a merge commit.
 
-This npm package distributes prebuilt `gitfluff` binaries for Node.js environments. The correct release artifact is automatically downloaded during installation.
+This npm package distributes prebuilt `gitfluff` binaries for Node.js environments. The correct release artifact is automatically downloaded during installation, and its SHA-256 checksum is verified against the release's published checksums manifest.
 
 ## Quick Start
 
@@ -15,7 +15,7 @@ npm install -g gitfluff
 **Run without installation:**
 
 ```bash
-npx gitfluff@0.8.0 --version
+npx gitfluff@0.9.0 --version
 ```
 
 **Lint a commit message:**
@@ -58,6 +58,8 @@ gitfluff hook install commit-msg
 gitfluff hook install commit-msg --write
 ```
 
+Hook installation respects `core.hooksPath` (including relative paths) and works correctly in linked git worktrees.
+
 ### pre-commit Framework
 
 **Add to `.pre-commit-config.yaml`:**
@@ -69,7 +71,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.8.0
+    rev: v0.9.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
@@ -130,6 +132,7 @@ write = true
 
 [rules]
 no_emojis = true
+ai_cleanup = true  # set to false to disable AI attribution cleanup
 title_prefix = "JIRA-[0-9]+"
 title_prefix_separator = " * "
 
@@ -138,7 +141,7 @@ find = "(?i)wip"
 replace = "WIP"
 ```
 
-All keys are optional—omit the file to stick with the default Conventional Commits preset.
+All keys are optional—omit the file to stick with the default Conventional Commits preset. Unknown config keys now trigger an error rather than being silently ignored.
 
 ## Advanced usage
 

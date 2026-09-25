@@ -8,6 +8,44 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-09-25
+
+### Breaking
+
+- `--exclude` now separates its regex from an optional custom message with `->` instead of the
+  first `:`, matching `--cleanup`. The colon form is gone with no fallback, because the two are
+  indistinguishable: `--exclude '^(?:foo)'` was previously parsed as the regex `^(?` with the
+  message `foo)`. Migrate `--exclude 'REGEX:MESSAGE'` to `--exclude 'REGEX->MESSAGE'`; an argument
+  with no `->` is the whole regex, so colon-bearing patterns now work unquoted as written.
+- Unknown keys in `.gitfluff.toml` are now an error rather than being ignored. A config that
+  silently half-worked because of a typo (`no_emoji` for `no_emojis`) will now fail to load —
+  which is the point, but it means a previously "passing" config can start erroring on upgrade.
+- `--write` and `--message` are now mutually exclusive: the combination used to report success
+  while being unable to persist anything. A config-file `write = true` is no longer an error with
+  `--message`, but is ignored with a warning.
+
+### Fixed
+
+- The built-in AI-cleanup rules were not line-anchored and could delete arbitrary commit-message body text between a "Generated with" banner and an AI co-author trailer; they now match only the lines they target.
+- An AI-cleanup rule deleted any body bullet beginning "- Claude", including legitimate prose; the rule now only matches standalone Claude attribution bullets.
+- `git revert`, `fixup!` and `squash!` commits were rejected by the default preset; they are now skipped.
+- The in-progress-merge skip was keyed on the working directory's git state and wrongly suppressed `--message` lints; it now only applies when linting the actual commit message file.
+- Title length was measured against the prefix-stripped title rather than the full title, silently raising the effective limit when a prefix was configured; length is now measured on the full title line.
+- A partial CLI override of the title-prefix settings reset the separator to clap's default instead of preserving the configured value; prefix and suffix separators now resolve independently of their patterns.
+- Hook installation in a linked git worktree wrote the hook into the per-worktree git dir, where git never runs it; hooks are now installed into the common git dir.
+- The npm and pip wrappers downloaded release binaries with no integrity check; both now verify SHA-256 against the release's published checksums manifest before extracting.
+
+### Changed
+
+- Dependency upgrades: `clap` 4.5 → 4.6, `toml` 0.9 → 1.1.
+
+### Added
+
+- `--no-ai-cleanup` CLI flag and `[rules] ai_cleanup = false` config key to disable the built-in detection and cleanup of AI attribution trailers and banners.
+- `core.hooksPath` is now respected by hook installation, including relative values resolved against the working-tree top level.
+- Custom `[rules.message]` patterns can now opt into Conventional Commits length checks with `enforce_length = true` and case checks with `enforce_case = true`.
+- Unanchored custom message patterns now emit a warning explaining they match anywhere in the title line and should be anchored with `^` and `$` for full-title matches.
+
 ## [0.8.0] - 2026-01-18
 
 ### Added

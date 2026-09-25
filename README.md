@@ -39,7 +39,7 @@ brew tap goldziher/tap
 brew install gitfluff
 ```
 
-npm:
+npm (checksums verified before extraction):
 
 ```bash
 npm install -g gitfluff
@@ -54,7 +54,7 @@ cargo install gitfluff
 One-off runs:
 
 ```bash
-npx gitfluff@0.8.0 --version
+npx gitfluff@0.9.0 --version
 uvx gitfluff --version
 ```
 
@@ -70,16 +70,19 @@ write = true
 no_emojis = true
 ascii_only = false
 exit_nonzero_on_rewrite = true
+ai_cleanup = true  # set to false to disable AI attribution cleanup
 
 title_prefix = "ABC-123"
-title_prefix_separator = " - "
+title_prefix_separator = " * "
 ```
 
 Notes:
 
 - `title_prefix` and `title_suffix` can be simple literals or a pattern like `ABC-[0-9]+`.
 - `write = true` applies safe cleanups and preserves your intent.
+- `ai_cleanup = false` disables the built-in removal of AI attribution trailers and banners.
 - The hook honors your config automatically.
+- Unknown config keys now trigger an error rather than being silently ignored.
 
 ## Common use cases
 
@@ -90,6 +93,8 @@ Notes:
 ## Hooks and tooling
 
 `gitfluff` works with pre-commit, Husky, Lefthook, and raw Git hooks. If you already use a hook manager, just call `gitfluff lint` from your commit-msg hook. It accepts the commit message path as the first argument.
+
+Hook installation respects `core.hooksPath` (including relative paths resolved against the working-tree top level) and works correctly in linked git worktrees.
 
 ## Conventional Commits compliance
 
