@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 import platform
 import ssl
@@ -10,7 +11,7 @@ import sys
 import tarfile
 import tempfile
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.error import URLError
 from urllib.request import Request, urlopen
 
@@ -47,12 +48,18 @@ def _python_version_to_tag(version: str) -> str:
     return version
 
 
-def _asset(version: str) -> tuple[str, str]:
+def _asset(version: str) -> tuple[str, str, str]:
+    """Return the (url, ext, name) of the release archive for this platform.
+
+    `name` is returned rather than recomputed by the caller: it is the key the checksum manifest
+    is looked up by, and a name derived separately from the URL could drift out of step with it.
+    """
     tag = _python_version_to_tag(version)
     triple = _platform_triple()
     ext = "zip" if "windows" in triple else "tar.gz"
-    url = f"https://github.com/Goldziher/gitfluff/releases/download/v{tag}/gitfluff-{triple}.{ext}"
-    return url, ext
+    name = f"gitfluff-{triple}.{ext}"
+    url = f"https://github.com/Goldziher/gitfluff/releases/download/v{tag}/{name}"
+    return url, ext, name
 
 
 def _download(url: str, destination: Path) -> None:
@@ -85,6 +92,61 @@ def _extract(archive: Path, ext: str, destination: Path) -> None:
     raise RuntimeError("Binary not found in downloaded archive")
 
 
+def _download_text(url: str) -> str:
+    request = Request(url, headers={"User-Agent": "gitfluff-python-wrapper"})
+    context = ssl.create_default_context(cafile=certifi.where())
+    try:
+        with urlopen(request, timeout=30, context=context) as response:
+            if response.status != 200:
+                raise RuntimeError(f"HTTP {response.status}: {response.reason}")
+            return response.read().decode("utf-8")
+    except URLError as exc:
+        raise RuntimeError(f"Failed to download: {exc}") from exc
+
+
+def _sha256_file(path: Path) -> str:
+    sha256_hash = hashlib.sha256()
+    with path.open("rb") as f:
+        for byte_block in iter(lambda: f.read(4096), b""):
+            sha256_hash.update(byte_block)
+    return sha256_hash.hexdigest()
+
+
+def _verify_checksum(archive_path: Path, archive_name: str, version: str) -> None:
+    # The manifest is named after the release TAG, not the PyPI version string -- for a release
+    # candidate those differ (0.8.0rc1 vs 0.8.0-rc.1), and naming it after the version would
+    # request a file that does not exist.
+    tag = _python_version_to_tag(version)
+    checksum_url = f"https://github.com/Goldziher/gitfluff/releases/download/v{tag}/gitfluff_{tag}_checksums.txt"
+
+    print("Downloading checksums manifest...", file=sys.stderr)
+    checksum_text = _download_text(checksum_url)
+
+    # sha256sum format is "<hash>  <name>". Match the name field exactly rather than with a
+    # substring test, so a manifest entry such as "<name>.sig" can never satisfy the lookup.
+    entry = next(
+        (
+            fields
+            for fields in (line.strip().split() for line in checksum_text.splitlines())
+            if len(fields) >= 2 and PurePosixPath(fields[-1]).name == archive_name
+        ),
+        None,
+    )
+
+    if entry is None:
+        raise RuntimeError(f"Checksum not found for {archive_name} in manifest")
+
+    expected_hash = entry[0]
+
+    print("Verifying archive checksum...", file=sys.stderr)
+    actual_hash = _sha256_file(archive_path)
+
+    if actual_hash != expected_hash:
+        raise RuntimeError(f"Checksum mismatch for {archive_name}\nExpected: {expected_hash}\nActual: {actual_hash}")
+
+    print("Checksum verified successfully.", file=sys.stderr)
+
+
 def _cache_path(version: str) -> Path:
     """
     Return a versioned cache path so upgrades download matching binaries.
@@ -106,12 +168,13 @@ def ensure_binary() -> str:
     if binary_path.exists() and os.access(binary_path, os.X_OK):
         return str(binary_path)
 
-    url, ext = _asset(__version__)
+    url, ext, archive_name = _asset(__version__)
     print(f"Downloading gitfluff binary v{__version__}...", file=sys.stderr)
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        archive_path = Path(tmpdir) / "gitfluff.tar.gz"
+        archive_path = Path(tmpdir) / f"gitfluff.{ext}"
         _download(url, archive_path)
+        _verify_checksum(archive_path, archive_name, __version__)
         _extract(archive_path, ext, binary_path)
 
     if platform.system().lower() != "windows":
