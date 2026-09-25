@@ -14,7 +14,14 @@ if (!existsSync(candidate)) {
     [
       "gitfluff: unable to locate binary.",
       "The npm package expects to download release binaries during install.",
-      "If you are running from source, set GITFLUFF_BINARY to a compiled binary path.",
+      "",
+      "This usually happens when:",
+      "  - npm install was run with --ignore-scripts (postinstall did not run)",
+      "  - The install script failed but npm continued",
+      "",
+      "To fix:",
+      "  1. Run: npm rebuild gitfluff",
+      "  2. Or set GITFLUFF_BINARY to a compiled binary path",
     ].join("\n"),
   );
   process.exit(1);
