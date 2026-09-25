@@ -1,26 +1,65 @@
 name: Release Homebrew
 
+# The `release: published` trigger is kept for releases cut by a human, but it cannot be relied
+# on alone: goreleaser publishes with GITHUB_TOKEN, and GitHub deliberately does not raise
+# workflow events for actions taken with that token. A release published by the bot therefore
+# never reaches this workflow, which is why the tap silently stayed on the previous version.
+# publish.yaml calls this workflow directly so the tap tracks every release either way.
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g., v0.1.0)"
+        required: true
+        type: string
+    secrets:
+      HOMEBREW_TOKEN:
+        required: true
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to publish (e.g., v0.1.0)"
+        required: true
+        type: string
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.tag || github.ref }}
   cancel-in-progress: true
 
 jobs:
   homebrew:
-    if: startsWith(github.ref, 'refs/tags/v')
     name: Update Homebrew Formula
     runs-on: ubuntu-latest
     steps:
+      - name: Resolve tag
+        id: tag
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+          tag="${INPUT_TAG:-$RELEASE_TAG}"
+
+          case "$tag" in
+            v[0-9]*) ;;
+            *)
+              echo "refusing to bump the formula for tag '$tag': expected a v-prefixed release tag" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "Updating the Homebrew formula for $tag"
+
       - name: Update Homebrew formula
         uses: mislav/bump-homebrew-formula-action@v3
         with:
           formula-name: gitfluff
           formula-path: Formula/gitfluff.rb
           homebrew-tap: Goldziher/homebrew-tap
-          download-url: https://github.com/Goldziher/gitfluff/archive/${{ github.event.release.tag_name }}.tar.gz
+          download-url: https://github.com/Goldziher/gitfluff/archive/${{ steps.tag.outputs.tag }}.tar.gz
           commit-message: |
             {{formulaName}} {{version}}
 

@@ -246,3 +246,16 @@ jobs:
         with:
           packages-dir: pip-package/dist
           skip-existing: true
+
+  # Called explicitly rather than left to release-homebrew.yml's `release: published` trigger:
+  # goreleaser publishes the release with GITHUB_TOKEN, and GitHub does not raise workflow events
+  # for that token, so the tap would silently stay on the previous version. The formula points at
+  # the tag's source archive, so this only needs the tag to exist.
+  publish_homebrew:
+    name: Update Homebrew formula
+    needs: meta
+    uses: ./.github/workflows/release-homebrew.yml
+    with:
+      tag: ${{ needs.meta.outputs.tag }}
+    secrets:
+      HOMEBREW_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
