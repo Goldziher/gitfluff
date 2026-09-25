@@ -2,7 +2,7 @@
 
 Commit message linter with presets, custom formats, and cleanup automation. Fully compliant with [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Skips linting while Git is creating a merge commit.
 
-This npm package distributes prebuilt `gitfluff` binaries for Node.js environments. The correct release artifact is automatically downloaded during installation.
+This npm package distributes prebuilt `gitfluff` binaries for Node.js environments. The correct release artifact is automatically downloaded during installation, and its SHA-256 checksum is verified against the release's published checksums manifest.
 
 ## Quick Start
 
@@ -57,6 +57,8 @@ gitfluff hook install commit-msg
 ```bash
 gitfluff hook install commit-msg --write
 ```
+
+Hook installation respects `core.hooksPath` (including relative paths) and works correctly in linked git worktrees.
 
 ### pre-commit Framework
 
@@ -130,6 +132,7 @@ write = true
 
 [rules]
 no_emojis = true
+ai_cleanup = true  # set to false to disable AI attribution cleanup
 title_prefix = "JIRA-[0-9]+"
 title_prefix_separator = " * "
 
@@ -138,11 +141,11 @@ find = "(?i)wip"
 replace = "WIP"
 ```
 
-All keys are optional—omit the file to stick with the default Conventional Commits preset.
+All keys are optional—omit the file to stick with the default Conventional Commits preset. Unknown config keys now trigger an error rather than being silently ignored.
 
 ## Advanced usage
 
-- Override rules inline with CLI flags: `--preset`, `--msg-pattern`, `--exclude`, `--cleanup`, `--cleanup-pattern`, `--single-line`, `--require-body`, `--no-emojis`, `--ascii-only`, `--title-prefix`, `--title-suffix`.
+- Override rules inline with CLI flags: `--preset`, `--msg-pattern`, `--exclude`, `--cleanup`, `--cleanup-pattern`, `--single-line`, `--require-body`, `--no-emojis`, `--ascii-only`, `--title-prefix`, `--title-suffix`, `--no-ai-cleanup`.
 - Combine with `--write` to apply cleanups when running inside hooks or automation.
 - Set `GITFLUFF_BINARY` to point at a custom build if you need to test unpublished binaries.
 

@@ -2,7 +2,7 @@
 
 Commit message linter with presets, custom formats, and cleanup automation. Fully compliant with [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/). Skips linting while Git is creating a merge commit.
 
-This Python package distributes prebuilt `gitfluff` binaries. On first use, the correct release binary for your platform is downloaded and cached under `~/.cache/gitfluff`.
+This Python package distributes prebuilt `gitfluff` binaries. On first use, the correct release binary for your platform is downloaded and cached under `~/.cache/gitfluff`. The binary's SHA-256 checksum is verified against the release's published checksums manifest before extraction.
 
 ## Quick Start
 
@@ -58,6 +58,8 @@ gitfluff hook install commit-msg
 gitfluff hook install commit-msg --write
 ```
 
+Hook installation respects `core.hooksPath` (including relative paths) and works correctly in linked git worktrees.
+
 ### pre-commit Framework
 
 **Add to `.pre-commit-config.yaml`:**
@@ -110,15 +112,16 @@ write = true
 
 [rules]
 no_emojis = true
+ai_cleanup = true  # set to false to disable AI attribution cleanup
 title_suffix = "\\(JIRA-[0-9]+\\)"
 exit_nonzero_on_rewrite = true
 ```
 
-Any setting can be left out; omit the file entirely to keep defaults.
+Any setting can be left out; omit the file entirely to keep defaults. Unknown config keys now trigger an error rather than being silently ignored.
 
 ## Advanced usage
 
-- Override rules per-invocation using CLI flags (e.g. `--preset`, `--msg-pattern`, `--cleanup-pattern`, `--exclude`, `--cleanup`, `--single-line`, `--no-emojis`, `--ascii-only`, `--title-prefix`, `--title-suffix`).
+- Override rules per-invocation using CLI flags (e.g. `--preset`, `--msg-pattern`, `--cleanup-pattern`, `--exclude`, `--cleanup`, `--single-line`, `--no-emojis`, `--ascii-only`, `--title-prefix`, `--title-suffix`, `--no-ai-cleanup`).
 - Set `GITFLUFF_BINARY` to point at a custom build when testing unpublished versions.
 - Clear the cache (`rm ~/.cache/gitfluff/gitfluff*`) to force a fresh download.
 
