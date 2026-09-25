@@ -18,7 +18,7 @@
   "keywords": ["git", "commit", "lint", "conventional", "format"],
   "author": "Na'aman Hirschfeld <nhirschfeld@gmail.com>",
   "dependencies": {
-    "adm-zip": "^0.5.12",
-    "tar": "^6.2.1"
+    "adm-zip": "^0.6.1",
+    "tar": "^7.5.22"
   }
 }
