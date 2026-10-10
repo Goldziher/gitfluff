@@ -1,5 +1,11 @@
 ---
-priority: critical
+type: Decision
+title: Conventional Commits
+x-ai-rulez:
+  kind: rule
+  id: conventional-commits
+  metadata:
+    priority: critical
 ---
 
 # Conventional Commits Enforcement

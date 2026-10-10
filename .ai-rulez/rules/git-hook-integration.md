@@ -1,5 +1,11 @@
 ---
-priority: high
+type: Decision
+title: Git Hook Integration
+x-ai-rulez:
+  kind: rule
+  id: git-hook-integration
+  metadata:
+    priority: high
 ---
 
 # Git Hook Integration
