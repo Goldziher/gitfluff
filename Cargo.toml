@@ -1,4 +1,6 @@
 [package]
+authors = ["Na'aman Hirschfeld <nhirschfeld@gmail.com>"]
+include = ["/Cargo.toml", "/Cargo.lock", "/src/**", "/README.md"]
 name = "gitfluff"
 version = "0.9.0"
 edition = "2024"
