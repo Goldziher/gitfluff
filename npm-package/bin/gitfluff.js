@@ -16,11 +16,11 @@ if (!existsSync(candidate)) {
       "The npm package expects to download release binaries during install.",
       "",
       "This usually happens when:",
-      "  - npm install was run with --ignore-scripts (postinstall did not run)",
+      "  - pnpm install was run with --ignore-scripts (postinstall did not run)",
       "  - The install script failed but npm continued",
       "",
       "To fix:",
-      "  1. Run: npm rebuild gitfluff",
+      "  1. Run: pnpm rebuild gitfluff",
       "  2. Or set GITFLUFF_BINARY to a compiled binary path",
     ].join("\n"),
   );

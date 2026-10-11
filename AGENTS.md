@@ -1,15 +1,10 @@
 <!--
-🤖 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-Project: gitfluff
-Source: .ai-rulez/config.toml
-
-NEVER edit this file - modify .ai-rulez/ content instead
-Use MCP server: npx -y ai-rulez@latest mcp
-Regenerate: ai-rulez generate
-
-Docs: https://github.com/Goldziher/ai-rulez
-Content-Hash: blake3:fdff6520479f11c614c0ba683911e3453c46867c3cfcfb768dc7ac022460a275
-Source-Hash: blake3:a544df6b761cea1972540b610c0d15b4890365073f46f653caa75ef36aa79314
+AI-RULEZ :: GENERATED FILE — DO NOT EDIT
+Source: .ai-rulez/config.toml and .ai-rulez/
+Regenerate: pnpm dlx ai-rulez@5.0.1 generate
+Use MCP server: pnpm dlx ai-rulez@5.0.1 mcp
+Content-Hash: blake3:f770fab5dd97971224caf7e84ab3f1e87ce7f7a792e8fd9b8c2aa030d50ee8a3
+Source-Hash: blake3:0a439a3325d68a9b6678ac986fb616df8f4211a04f36b6fdcfd769cd15a644ab
 -->
 
 # gitfluff
@@ -123,40 +118,42 @@ Conventional commits: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`, `test:`, 
 
 **Priority:** high
 
+## Cross-Platform Distribution
+
 gitfluff is distributed as prebuilt binaries through multiple package managers. All distribution wrappers download the correct platform-specific binary at install time.
 
-## Distribution Channels
+### Distribution Channels
 
-### Cargo (crates.io)
+#### Cargo (crates.io)
 
 - Published directly from `Cargo.toml`.
 - Users install via `cargo install gitfluff`.
 
-### npm (`npm-package/`)
+#### npm (`npm-package/`)
 
-- `install.js` downloads the platform-specific binary during `npm install`.
+- `install.js` downloads the platform-specific binary during `pnpm install`.
 - `bin/gitfluff.js` is a wrapper script that executes the downloaded binary.
-- Published as `gitfluff` on npm. Also usable via `npx gitfluff`.
+- Published as `gitfluff` on npm. Also usable via `pnpm dlx gitfluff`.
 
-### PyPI (`pip-package/`)
+#### PyPI (`pip-package/`)
 
 - `downloader.py` fetches the binary for the current platform.
 - `cli.py` / `__main__.py` provide Python wrapper entry points.
 - Published as `gitfluff` on PyPI. Also usable via `uvx gitfluff`.
 
-### Homebrew (`homebrew-tap/`)
+#### Homebrew (`homebrew-tap/`)
 
 - Formula at `homebrew-tap/Formula/gitfluff.rb`.
 - Users install via `brew tap goldziher/tap && brew install gitfluff`.
 - Formula is auto-updated by `.github/workflows/release-homebrew.yml`.
 
-### goreleaser (`.goreleaser.yaml`)
+#### goreleaser (`.goreleaser.yaml`)
 
 - Orchestrates cross-compilation and archive creation for release builds.
 - Produces binaries for macOS (aarch64, x86_64), Linux (aarch64, x86_64), and Windows (x86_64).
 - Output artifacts land in `dist/`.
 
-## Guidelines
+### Guidelines
 
 - Test install scripts on macOS, Linux, and Windows before releasing.
 - Ensure binary download URLs match the release tag format.
@@ -283,11 +280,13 @@ Show only what changed: elide unchanged code in a diff with `// ... existing cod
 
 ### architecture
 
-## Overview
+## Project Architecture
+
+### Overview
 
 gitfluff is a Rust CLI tool for commit message linting that enforces the Conventional Commits specification. It features automatic message cleanup via presets, configurable rules via `.gitfluff.toml`, and seamless Git hook integration.
 
-## Core Rust Application (`src/`)
+### Core Rust Application (`src/`)
 
 | File | Purpose |
 |------|---------|
@@ -298,16 +297,16 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 | `presets.rs` | Built-in presets (`conventional`, `conventional-body`, `simple`) |
 | `hooks.rs` | Git hook installation and management |
 
-## Distribution Packages
+### Distribution Packages
 
 | Directory | Target | Description |
 |-----------|--------|-------------|
-| `npm-package/` | npm / npx | `install.js` downloads binary; `bin/gitfluff.js` wraps execution |
+| `npm-package/` | npm / pnpm dlx | `install.js` downloads binary; `bin/gitfluff.js` wraps execution |
 | `pip-package/` | PyPI / uvx | `downloader.py` fetches binary; `cli.py` wraps execution |
 | `homebrew-tap/` | Homebrew | Formula at `Formula/gitfluff.rb`, auto-updated on release |
 | `dist/` | Release artifacts | Cross-compiled binaries produced by goreleaser |
 
-## Build & Release
+### Build & Release
 
 - `.goreleaser.yaml` - Cross-compilation configuration for macOS, Linux, Windows.
 - `.github/workflows/ci.yml` - Tests and clippy on every push.
@@ -315,7 +314,7 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 - `.github/workflows/publish.yaml` - Publishes to crates.io, npm, PyPI.
 - `.github/workflows/release-homebrew.yml` - Updates Homebrew formula.
 
-## Key Dependencies
+### Key Dependencies
 
 - **clap** - CLI argument parsing with derive macros.
 - **anyhow** - Error handling with context chains.

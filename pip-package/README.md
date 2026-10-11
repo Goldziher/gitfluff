@@ -99,7 +99,7 @@ commit-msg:
 **Install hooks:**
 
 ```bash
-npx lefthook install
+pnpm dlx lefthook install
 ```
 
 ## Optional configuration

@@ -9,13 +9,13 @@ This npm package distributes prebuilt `gitfluff` binaries for Node.js environmen
 **Install globally:**
 
 ```bash
-npm install -g gitfluff
+pnpm add -g gitfluff
 ```
 
 **Run without installation:**
 
 ```bash
-npx gitfluff@0.9.0 --version
+pnpm dlx gitfluff@0.9.0 --version
 ```
 
 **Lint a commit message:**
@@ -90,13 +90,13 @@ pre-commit install
 **Initialize Husky:**
 
 ```bash
-npx husky init
+pnpm dlx husky init
 ```
 
 **Create commit-msg hook:**
 
 ```bash
-echo 'npx gitfluff lint "$1"' > .husky/commit-msg
+echo 'pnpm dlx gitfluff lint "$1"' > .husky/commit-msg
 ```
 
 **Make it executable:**
@@ -113,13 +113,13 @@ chmod +x .husky/commit-msg
 commit-msg:
   commands:
     gitfluff:
-      run: npx gitfluff lint {1}
+      run: pnpm dlx gitfluff lint {1}
 ```
 
 **Install hooks:**
 
 ```bash
-npx lefthook install
+pnpm dlx lefthook install
 ```
 
 ## Optional configuration

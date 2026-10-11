@@ -42,7 +42,7 @@ brew install gitfluff
 npm (checksums verified before extraction):
 
 ```bash
-npm install -g gitfluff
+pnpm add -g gitfluff
 ```
 
 Cargo:
@@ -54,7 +54,7 @@ cargo install gitfluff
 One-off runs:
 
 ```bash
-npx gitfluff@0.9.0 --version
+pnpm dlx gitfluff@0.9.0 --version
 uvx gitfluff --version
 ```
 

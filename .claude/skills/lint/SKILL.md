@@ -3,7 +3,7 @@ description: Run all linters and formatters
 name: lint
 user-invocable: true
 # Content-Hash: blake3:240f196c5bc15326ff9c2aaffcd3f716fede4e3e593cf632c68f832e9de429b9
-# Source-Hash: blake3:b2dc5e4e460938eee1c3df16aa2cdd267d2246f89eb7d53b0e7ad5a1ea7d98f4
+# Source-Hash: blake3:b881e1a8f6a10a392c99468eafe8cd79cc12ce184cc0fb8887c5f6ef73c55cb1
 ---
 
 # Lint

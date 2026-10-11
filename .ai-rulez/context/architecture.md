@@ -8,13 +8,13 @@ x-ai-rulez:
     priority: high
 ---
 
-# Project Architecture
+## Project Architecture
 
-## Overview
+### Overview
 
 gitfluff is a Rust CLI tool for commit message linting that enforces the Conventional Commits specification. It features automatic message cleanup via presets, configurable rules via `.gitfluff.toml`, and seamless Git hook integration.
 
-## Core Rust Application (`src/`)
+### Core Rust Application (`src/`)
 
 | File | Purpose |
 |------|---------|
@@ -25,16 +25,16 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 | `presets.rs` | Built-in presets (`conventional`, `conventional-body`, `simple`) |
 | `hooks.rs` | Git hook installation and management |
 
-## Distribution Packages
+### Distribution Packages
 
 | Directory | Target | Description |
 |-----------|--------|-------------|
-| `npm-package/` | npm / npx | `install.js` downloads binary; `bin/gitfluff.js` wraps execution |
+| `npm-package/` | npm / pnpm dlx | `install.js` downloads binary; `bin/gitfluff.js` wraps execution |
 | `pip-package/` | PyPI / uvx | `downloader.py` fetches binary; `cli.py` wraps execution |
 | `homebrew-tap/` | Homebrew | Formula at `Formula/gitfluff.rb`, auto-updated on release |
 | `dist/` | Release artifacts | Cross-compiled binaries produced by goreleaser |
 
-## Build & Release
+### Build & Release
 
 - `.goreleaser.yaml` - Cross-compilation configuration for macOS, Linux, Windows.
 - `.github/workflows/ci.yml` - Tests and clippy on every push.
@@ -42,7 +42,7 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 - `.github/workflows/publish.yaml` - Publishes to crates.io, npm, PyPI.
 - `.github/workflows/release-homebrew.yml` - Updates Homebrew formula.
 
-## Key Dependencies
+### Key Dependencies
 
 - **clap** - CLI argument parsing with derive macros.
 - **anyhow** - Error handling with context chains.

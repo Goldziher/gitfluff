@@ -20,5 +20,6 @@
   "dependencies": {
     "adm-zip": "^0.6.1",
     "tar": "^7.5.22"
-  }
+  },
+  "packageManager": "pnpm@12.11.2"
 }
