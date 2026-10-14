@@ -8,15 +8,15 @@ x-ai-rulez:
     priority: critical
 ---
 
-# Conventional Commits Enforcement
+## Conventional Commits Enforcement
 
 All commits in this repository **must** follow the [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) specification.
 
-## Allowed Types
+### Allowed Types
 
 `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
 
-## Format
+### Format
 
 ```text
 <type>[optional scope][!]: <description>
@@ -26,7 +26,7 @@ All commits in this repository **must** follow the [Conventional Commits 1.0.0](
 [optional footer(s)]
 ```
 
-## Rules
+### Rules
 
 - Use a scope when the change targets a specific module (e.g., `feat(lint)`, `fix(hooks)`, `docs(readme)`).
 - Mark breaking changes with `!` after the type/scope or include a `BREAKING CHANGE:` footer.
@@ -35,7 +35,7 @@ All commits in this repository **must** follow the [Conventional Commits 1.0.0](
 - Separate subject from body with a blank line.
 - Wrap body lines at 100 characters.
 
-## Presets System
+### Presets System
 
 gitfluff ships built-in presets that control linting behavior:
 
@@ -45,7 +45,7 @@ gitfluff ships built-in presets that control linting behavior:
 
 Presets also handle automatic cleanup of AI-generated signatures and trailers. Patterns are defined in `src/presets.rs`.
 
-## Validation
+### Validation
 
 Always test commit messages locally before pushing:
 

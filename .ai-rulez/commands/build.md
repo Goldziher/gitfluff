@@ -12,11 +12,11 @@ x-ai-rulez:
     usage: /build
 ---
 
-# Build
+## Build
 
 Build the project and report any compilation errors.
 
-## Steps
+### Steps
 
 1. Run `cargo build` to compile the project in debug mode.
 2. If compilation succeeds, report success and the binary location (`target/debug/gitfluff`).

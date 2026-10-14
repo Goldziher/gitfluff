@@ -3,29 +3,32 @@ version = "5.0"
 name = 'gitfluff'
 description = 'Rust-based CLI tool for enforcing Conventional Commits 1.0.0 specification with automatic message cleanup and multi-platform distribution.'
 gitignore = true
+gitignore_exclude = [
+  ".ai-rulez/.generated-manifest.json",
+  ".claude/agents/code-reviewer.md",
+  ".claude/agents/docs-writer.md",
+  ".claude/agents/security-auditor.md",
+  ".claude/agents/test-writer.md",
+  ".claude/skills/build/SKILL.md",
+  ".claude/skills/fix/SKILL.md",
+  ".claude/skills/iterate/SKILL.md",
+  ".claude/skills/lint/SKILL.md",
+  ".claude/skills/parallelize/SKILL.md",
+  ".claude/skills/review/SKILL.md",
+  ".claude/skills/test/SKILL.md",
+  ".codex/agents/code-reviewer.toml",
+  ".codex/agents/docs-writer.toml",
+  ".codex/agents/security-auditor.toml",
+  ".codex/agents/test-writer.toml",
+  "AGENTS.md",
+  "CLAUDE.md",
+]
+default_layers = ["plugins"]
 presets = ["claude", "codex", "opencode", "pi"]
 builtins = ['rust', 'default-commands']
 
-[[marketplaces]]
-name = "basemind"
-source = "Goldziher/basemind"
-type = "github"
-
-[[plugins]]
-marketplace = "basemind"
-name = "basemind"
-scope = "project"
-enabled = true
-
-# Pinned by `ai-rulez migrate v5`: the 4.x default. Remove this line to take the v5 default.
-[header]
-text = """
-AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-Source: .ai-rulez/config.toml and .ai-rulez/
-Regenerate: pnpm dlx ai-rulez@5.0.1 generate
-Use MCP server: pnpm dlx ai-rulez@5.0.1 mcp
-"""
-hashes = "full"
-
 [mcp]
-self_server_command = ["pnpm", "dlx", "ai-rulez@5.0.1", "mcp"]
+self_server_command = ["ai-rulez", "mcp"]
+
+[lock]
+include_outputs = false

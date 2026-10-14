@@ -8,11 +8,11 @@ x-ai-rulez:
     priority: high
 ---
 
-# Git Hook Integration
+## Git Hook Integration
 
 gitfluff integrates with Git hooks for automatic commit message linting. It supports both direct hook installation and third-party hook managers.
 
-## Direct Installation
+### Direct Installation
 
 Install gitfluff as a `commit-msg` hook directly:
 
@@ -22,7 +22,7 @@ gitfluff hook install
 
 Pass `--write` to enable automatic cleanup (removing AI signatures, normalizing formatting) before the commit is finalized.
 
-## Hook Installation Safety
+### Hook Installation Safety
 
 When implementing or modifying hook installation logic in `src/hooks.rs`:
 
@@ -31,7 +31,7 @@ When implementing or modifying hook installation logic in `src/hooks.rs`:
 - Use **atomic file operations** (write to temp file, then rename) to prevent corruption.
 - Set correct file permissions (executable bit) on installed hook scripts.
 
-## Supported Hook Managers
+### Supported Hook Managers
 
 - **Husky** - Node.js hook manager; gitfluff works as a called binary.
 - **Lefthook** - Go-based hook manager; gitfluff works as a called binary.

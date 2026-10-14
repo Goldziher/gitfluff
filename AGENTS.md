@@ -1,10 +1,14 @@
 <!--
-AI-RULEZ :: GENERATED FILE — DO NOT EDIT
-Source: .ai-rulez/config.toml and .ai-rulez/
-Regenerate: pnpm dlx ai-rulez@5.0.1 generate
-Use MCP server: pnpm dlx ai-rulez@5.0.1 mcp
-Content-Hash: blake3:f770fab5dd97971224caf7e84ab3f1e87ce7f7a792e8fd9b8c2aa030d50ee8a3
-Source-Hash: blake3:0a439a3325d68a9b6678ac986fb616df8f4211a04f36b6fdcfd769cd15a644ab
+🤖 AI-RULEZ :: GENERATED FILE — DO NOT EDIT
+Project: gitfluff
+Source: .ai-rulez/config.toml
+
+NEVER edit this file - modify .ai-rulez/ content instead
+Use MCP server: ai-rulez mcp
+Regenerate: ai-rulez generate
+
+Docs: https://github.com/Goldziher/ai-rulez
+Content-Hash: blake3:e83fec323e15faf8e3c8b79d8c5cd5b1a0d9f87bba9037505ad18b9b646dcf8a
 -->
 
 # gitfluff
@@ -23,13 +27,15 @@ Be concise and precise — no fluff, no emojis, no unnecessary checklists. PR de
 
 **Priority:** critical
 
+## Conventional Commits Enforcement
+
 All commits in this repository **must** follow the [Conventional Commits 1.0.0](https://www.conventionalcommits.org/en/v1.0.0/) specification.
 
-## Allowed Types
+### Allowed Types
 
 `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`
 
-## Format
+### Format
 
 ```text
 <type>[optional scope][!]: <description>
@@ -39,7 +45,7 @@ All commits in this repository **must** follow the [Conventional Commits 1.0.0](
 [optional footer(s)]
 ```
 
-## Rules
+### Rules
 
 - Use a scope when the change targets a specific module (e.g., `feat(lint)`, `fix(hooks)`, `docs(readme)`).
 - Mark breaking changes with `!` after the type/scope or include a `BREAKING CHANGE:` footer.
@@ -48,7 +54,7 @@ All commits in this repository **must** follow the [Conventional Commits 1.0.0](
 - Separate subject from body with a blank line.
 - Wrap body lines at 100 characters.
 
-## Presets System
+### Presets System
 
 gitfluff ships built-in presets that control linting behavior:
 
@@ -58,13 +64,19 @@ gitfluff ships built-in presets that control linting behavior:
 
 Presets also handle automatic cleanup of AI-generated signatures and trailers. Patterns are defined in `src/presets.rs`.
 
-## Validation
+### Validation
 
 Always test commit messages locally before pushing:
 
 ```bash
 gitfluff lint --stdin <<< "feat(scope): description"
 ```
+
+### legacy-conventional-commits-compliance
+
+**Priority:** critical
+
+All commits must follow Conventional Commits 1.0.0 spec. Use allowed types: feat, fix, docs, style, refactor, perf, test, build, ci, chore. Include scope when applicable. Mark breaking changes with '!' or 'BREAKING CHANGE:' footer. Test with `gitfluff lint` before committing.
 
 ### no-ai-signatures
 
@@ -143,7 +155,7 @@ gitfluff is distributed as prebuilt binaries through multiple package managers. 
 
 #### Homebrew (`homebrew-tap/`)
 
-- Formula at `homebrew-tap/Formula/gitfluff.rb`.
+- Formula at [Goldziher/tap formula](https://github.com/Goldziher/homebrew-tap/blob/main/Formula/gitfluff.rb).
 - Users install via `brew tap goldziher/tap && brew install gitfluff`.
 - Formula is auto-updated by `.github/workflows/release-homebrew.yml`.
 
@@ -164,9 +176,11 @@ gitfluff is distributed as prebuilt binaries through multiple package managers. 
 
 **Priority:** high
 
+## Git Hook Integration
+
 gitfluff integrates with Git hooks for automatic commit message linting. It supports both direct hook installation and third-party hook managers.
 
-## Direct Installation
+### Direct Installation
 
 Install gitfluff as a `commit-msg` hook directly:
 
@@ -176,7 +190,7 @@ gitfluff hook install
 
 Pass `--write` to enable automatic cleanup (removing AI signatures, normalizing formatting) before the commit is finalized.
 
-## Hook Installation Safety
+### Hook Installation Safety
 
 When implementing or modifying hook installation logic in `src/hooks.rs`:
 
@@ -185,7 +199,7 @@ When implementing or modifying hook installation logic in `src/hooks.rs`:
 - Use **atomic file operations** (write to temp file, then rename) to prevent corruption.
 - Set correct file permissions (executable bit) on installed hook scripts.
 
-## Supported Hook Managers
+### Supported Hook Managers
 
 - **Husky** - Node.js hook manager; gitfluff works as a called binary.
 - **Lefthook** - Go-based hook manager; gitfluff works as a called binary.
@@ -198,6 +212,24 @@ Repository-wide linting is handled separately by poly, which runs in CI via the 
 **Priority:** high
 
 Validate and sanitize external input at the system boundary — types, ranges, formats — and allowlist rather than denylist.
+
+### legacy-configuration-management
+
+**Priority:** high
+
+All linting rules must be configurable via .gitfluff.toml and overridable by CLI flags. Use serde for serialization. Keep src/config.rs as single source of truth. Document all config options in README with examples.
+
+### legacy-cross-platform-binary-distribution
+
+**Priority:** high
+
+Maintain wrapper packages (npm-package/, pip-package/) that download correct prebuilt binary for platform. Update version strings in sync across Cargo.toml, package.json, and pyproject.toml. Test install scripts on macOS, Linux, and Windows before release.
+
+### legacy-error-handling-with-anyhow
+
+**Priority:** high
+
+Use anyhow::Result for CLI operations and anyhow::Context for error chain building. Provide actionable error messages that guide users. In src/lint.rs and src/hooks.rs, always add context to IO errors (e.g., '.context("Failed to read commit message file")?').
 
 ### minimal-changes
 
@@ -221,6 +253,8 @@ Tests ship with the behaviour change, in the same commit. Reproduce a bug with a
 
 **Priority:** high
 
+## Version Synchronization
+
 The project version must remain in sync across all distribution manifests. When bumping the version, update **all** of the following files:
 
 | File | Field |
@@ -229,20 +263,20 @@ The project version must remain in sync across all distribution manifests. When 
 | `npm-package/package.json` | `version` |
 | `pip-package/pyproject.toml` | `version` under `[project]` |
 
-## Process
+### Process
 
 1. Update the version string in `Cargo.toml` first (single source of truth for the Rust crate).
 2. Mirror the exact same version in `npm-package/package.json` and `pip-package/pyproject.toml`.
 3. Run `cargo build` to regenerate `Cargo.lock`.
 4. Verify all three files show the same version before committing.
 
-## Release Flow
+### Release Flow
 
 - Tagging a release (`vX.Y.Z`) triggers CI workflows that build, publish, and update Homebrew.
 - The tag version **must** match the version in `Cargo.toml`.
 - CI publishes to crates.io, npm, and PyPI in sequence.
 
-## Automation
+### Automation
 
 The `publish.yaml` workflow handles multi-registry publishing. If any single publish step fails, the others may still succeed, so always verify all registries after a release.
 
@@ -270,11 +304,29 @@ Briefly justify non-obvious decisions, name the trade-off when approaches compet
 
 Request only the permissions the task needs — narrowest file, network and API scopes — and run processes unprivileged.
 
+### legacy-hook-installation-safety
+
+**Priority:** medium
+
+In src/hooks.rs, always backup existing hooks before overwriting. Verify Git repository exists before installing hooks. Use atomic file operations. Support both traditional .git/hooks and Poly hook workflows.
+
+### legacy-integration-testing
+
+**Priority:** medium
+
+Write integration tests in tests/cli.rs using assert_cmd and predicates crates. Test all CLI subcommands (lint, hook install) with real commit message files. Verify --write flag modifies files correctly and is idempotent.
+
 ### output-awareness
 
 **Priority:** medium
 
 Show only what changed: elide unchanged code in a diff with `// ... existing code ...`, and never repeat what is already visible in context. Code goes in code blocks, not prose.
+
+### legacy-preset-pattern-maintenance
+
+**Priority:** low
+
+Keep regex patterns in src/presets.rs focused on reversible cleanups (AI signatures, trailers). Document regex patterns with examples. Test patterns don't accidentally strip legitimate commit content. Update AI signature patterns as new tools emerge.
 
 ## Context
 
@@ -310,7 +362,7 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 
 - `.goreleaser.yaml` - Cross-compilation configuration for macOS, Linux, Windows.
 - `.github/workflows/ci.yml` - Tests and clippy on every push.
-- `.github/workflows/release.yml` - Builds cross-platform binaries on tag.
+- `.github/workflows/publish.yaml` - Builds cross-platform binaries on tag.
 - `.github/workflows/publish.yaml` - Publishes to crates.io, npm, PyPI.
 - `.github/workflows/release-homebrew.yml` - Updates Homebrew formula.
 
@@ -324,14 +376,16 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 
 ### development-setup
 
-## Prerequisites
+## Development Setup
+
+### Prerequisites
 
 - **Rust 1.70+** - Install via [rustup](https://rustup.rs/).
 - **Cargo** - Included with Rust.
 - **poly** - Multi-language linter and formatter (polylint).
 - **Task** - Task runner (install via `brew install go-task` or see [taskfile.dev](https://taskfile.dev/)).
 
-## Building
+### Building
 
 ```bash
 # Debug build
@@ -344,7 +398,7 @@ cargo build --release
 cargo run -- lint --help
 ```
 
-## Testing
+### Testing
 
 ```bash
 # Run all tests
@@ -357,7 +411,7 @@ cargo test -- --nocapture
 cargo test --test cli
 ```
 
-## Code Quality
+### Code Quality
 
 ```bash
 # Run clippy linter
@@ -374,7 +428,7 @@ poly fmt --check .
 poly lint .
 ```
 
-## Task Runner
+### Task Runner
 
 The project uses [Task](https://taskfile.dev/) as a task runner. Run `task` to see available commands:
 
@@ -387,7 +441,7 @@ task check     # Run lint + test
 task setup     # Install dependencies and hooks
 ```
 
-## Commit Hooks
+### Commit Hooks
 
 poly runs in CI via the shared reusable validate workflow. gitfluff's own commit-msg validation is installed as a git hook:
 
@@ -397,30 +451,178 @@ gitfluff hook install
 
 This sets up commit-msg validation (gitfluff).
 
+### legacy-development-setup
+
+## Development Setup
+
+### Prerequisites
+
+- Rust 1.70+ (install via [rustup](https://rustup.rs/))
+- Cargo (included with Rust)
+
+### Building from Source
+
+```bash
+# Clone the repository
+git clone https://github.com/Goldziher/gitfluff.git
+cd gitfluff
+
+# Build debug version
+cargo build
+
+# Build optimized release
+cargo build --release
+
+# Run locally
+cargo run -- lint --help
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+cargo test
+
+# Run with output
+cargo test -- --nocapture
+
+# Run specific test file
+cargo test --test cli
+```
+
+### Code Quality
+
+```bash
+# Run clippy linter
+cargo clippy -- -D warnings
+
+# Format code
+cargo fmt
+
+# Check formatting without modifying
+cargo fmt -- --check
+```
+
 ### poly
+
+## poly
 
 poly (polylint) is a single-binary, multi-language linter and formatter. It bundles engines (ruff, oxc, taplo, rumdl) and delegates to native tools (cargo fmt/clippy, golangci-lint, actionlint, shellcheck, shfmt) when present.
 
-## Commands
+### Commands
 
 - Lint: `poly lint .`
 - Check formatting (dry-run): `poly fmt --check .`
 - Apply formatting: `poly fmt --fix .`
 - Apply lint autofixes: `poly lint --fix .`
 
-## Configuration
+### Configuration
 
 Per-repo `poly.toml`. Cache dir `.polylint/` (gitignored).
 
-## Severity
+### Severity
 
 `poly lint` exits non-zero only on error-severity findings; warnings don't fail CI.
 
-## CI
+### CI
 
 Validation runs via `uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1`.
 
 Run `poly fmt --check .` and `poly lint .` after changes to verify compliance.
+
+### legacy-project-architecture
+
+## Project Architecture
+
+### Core Rust Application (`src/`)
+
+- **`main.rs`** - Entry point, CLI argument parsing
+- **`cli.rs`** - Command definitions and handlers (lint, hook commands)
+- **`config.rs`** - Configuration file parsing (`.gitfluff.toml`/`.fluff.toml`)
+- **`lint.rs`** - Core linting logic and Conventional Commits validation
+- **`presets.rs`** - Built-in presets (`conventional`, `conventional-body`, `simple`)
+- **`hooks.rs`** - Git hook installation and management
+
+### Distribution Packages
+
+The project provides multiple distribution channels, each wrapping the core Rust binary:
+
+**npm (`npm-package/`)**
+
+- `install.js` - Downloads platform-specific binary on install
+- `bin/gitfluff.js` - Wrapper script that executes the binary
+- Published as `gitfluff` on npm
+
+**PyPI (`pip-package/`)**
+
+- `downloader.py` - Fetches binary for the current platform
+- `cli.py` / `__main__.py` - Python wrapper for binary execution
+- Published as `gitfluff` on PyPI
+
+**Homebrew (the external Goldziher/homebrew-tap repository)**
+
+- `gitfluff.rb` - Formula for installation via `brew tap goldziher/tap`
+- Auto-updated via `.github/workflows/release-homebrew.yml`
+
+### CI/CD (`.github/workflows/`)
+
+- **`ci.yml`** - Runs tests and clippy on every push
+- **`release.yml`** - Builds cross-platform binaries on tag
+- **`publish.yaml`** - Publishes to crates.io, npm, PyPI
+- **`release-homebrew.yml`** - Updates Homebrew formula
+
+### legacy-adding-custom-presets
+
+## Adding Custom Presets
+
+Presets are defined in `src/presets.rs` and provide reusable configuration profiles.
+
+### Creating a New Preset
+
+1. **Define preset in `src/presets.rs`:**
+
+```rust
+const MY_PRESET: &str = r#"
+preset = "my-preset"
+
+[rules]
+message_pattern = "^(feat|fix|docs): .+"
+message_description = "Must start with feat, fix, or docs"
+require_body = true
+
+[[rules.cleanup]]
+find = "(?i)wip"
+replace = "WIP"
+description = "Normalize WIP markers"
+"#;
+```
+
+2. **Register in `get_preset()` function:**
+
+```rust
+pub fn get_preset(name: &str) -> Option<&'static str> {
+    match name {
+        "conventional" => Some(CONVENTIONAL),
+        "conventional-body" => Some(CONVENTIONAL_BODY),
+        "simple" => Some(SIMPLE),
+        "my-preset" => Some(MY_PRESET), // Add here
+        _ => None,
+    }
+}
+```
+
+3. **Test the preset:**
+
+```bash
+cargo build
+./target/debug/gitfluff lint --preset my-preset --stdin <<< "feat: test message"
+```
+
+### Built-in Presets
+
+- **`conventional`** (default) - Full Conventional Commits spec, allows single-line commits
+- **`conventional-body`** - Requires body section for all commits
+- **`simple`** - Single-line commits only, no body/footer parsing
 
 ## Agents
 

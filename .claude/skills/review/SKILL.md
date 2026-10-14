@@ -2,15 +2,14 @@
 description: Review current changes for correctness, style, and potential issues
 name: review
 user-invocable: true
-# Content-Hash: blake3:23aff98e68b8ddb447883a997b04d658a0596e9cce5884c21708fbdde058f59e
-# Source-Hash: blake3:b881e1a8f6a10a392c99468eafe8cd79cc12ce184cc0fb8887c5f6ef73c55cb1
+# Content-Hash: blake3:58e47e7ccf82733e45e7fe3564371544dd9fef649e1f06fb49349beeb1ba7909
 ---
 
-# Review
+## Review
 
 Review all staged and unstaged changes in the current repository.
 
-## Steps
+### Steps
 
 1. Run `git diff` and `git diff --staged` to collect all changes.
 2. For each changed file, analyze:

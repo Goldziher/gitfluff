@@ -8,16 +8,16 @@ x-ai-rulez:
     priority: high
 ---
 
-# Development Setup
+## Development Setup
 
-## Prerequisites
+### Prerequisites
 
 - **Rust 1.70+** - Install via [rustup](https://rustup.rs/).
 - **Cargo** - Included with Rust.
 - **poly** - Multi-language linter and formatter (polylint).
 - **Task** - Task runner (install via `brew install go-task` or see [taskfile.dev](https://taskfile.dev/)).
 
-## Building
+### Building
 
 ```bash
 # Debug build
@@ -30,7 +30,7 @@ cargo build --release
 cargo run -- lint --help
 ```
 
-## Testing
+### Testing
 
 ```bash
 # Run all tests
@@ -43,7 +43,7 @@ cargo test -- --nocapture
 cargo test --test cli
 ```
 
-## Code Quality
+### Code Quality
 
 ```bash
 # Run clippy linter
@@ -60,7 +60,7 @@ poly fmt --check .
 poly lint .
 ```
 
-## Task Runner
+### Task Runner
 
 The project uses [Task](https://taskfile.dev/) as a task runner. Run `task` to see available commands:
 
@@ -73,7 +73,7 @@ task check     # Run lint + test
 task setup     # Install dependencies and hooks
 ```
 
-## Commit Hooks
+### Commit Hooks
 
 poly runs in CI via the shared reusable validate workflow. gitfluff's own commit-msg validation is installed as a git hook:
 

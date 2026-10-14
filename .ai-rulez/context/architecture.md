@@ -38,7 +38,7 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 
 - `.goreleaser.yaml` - Cross-compilation configuration for macOS, Linux, Windows.
 - `.github/workflows/ci.yml` - Tests and clippy on every push.
-- `.github/workflows/release.yml` - Builds cross-platform binaries on tag.
+- `.github/workflows/publish.yaml` - Builds cross-platform binaries on tag.
 - `.github/workflows/publish.yaml` - Publishes to crates.io, npm, PyPI.
 - `.github/workflows/release-homebrew.yml` - Updates Homebrew formula.
 

@@ -33,7 +33,7 @@ gitfluff is distributed as prebuilt binaries through multiple package managers. 
 
 #### Homebrew (`homebrew-tap/`)
 
-- Formula at `homebrew-tap/Formula/gitfluff.rb`.
+- Formula at [Goldziher/tap formula](https://github.com/Goldziher/homebrew-tap/blob/main/Formula/gitfluff.rb).
 - Users install via `brew tap goldziher/tap && brew install gitfluff`.
 - Formula is auto-updated by `.github/workflows/release-homebrew.yml`.
 
