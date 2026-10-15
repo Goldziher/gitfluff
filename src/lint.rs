@@ -154,7 +154,7 @@ fn evaluate_message(message: &str, options: &LintOptions) -> (Vec<String>, Vec<S
         violations.append(&mut errs);
         warnings.append(&mut warns);
     } else {
-        violations.extend(validate_body_policy(message, options.body_policy));
+        violations.extend(validate_body_policy(&normalized, options.body_policy));
 
         if options.enforce_line_lengths {
             violations.extend(validate_title_length(title_line));
@@ -342,7 +342,7 @@ fn apply_autofix(input: &str, enforce_conventional: bool) -> (String, Vec<String
                     summaries.push("Insert blank line before body".to_string());
                 }
 
-                if let Some(footer_start) = detect_footer_start(&lines)
+                if let Some(footer_start) = detect_footer_start(&lines[1..]).map(|index| index + 1)
                     && footer_start > 0
                     && lines.get(footer_start - 1).is_some_and(|line| !line.trim().is_empty())
                 {
@@ -388,9 +388,7 @@ fn detect_footer_start(lines: &[&str]) -> Option<usize> {
     if end == 0 {
         return None;
     }
-    (0..end)
-        .rev()
-        .find(|&idx| parse_footer_line(lines[idx].trim_end_matches('\r')).is_some())
+    (0..end).find(|&idx| parse_footer_line(lines[idx].trim_end_matches('\r')).is_some())
 }
 
 pub fn build_message_pattern(pattern: &str, description: Option<String>) -> Result<MessagePattern> {
@@ -526,13 +524,19 @@ fn parse_footer_line(line: &str) -> Option<FooterEntry> {
         return None;
     }
 
+    if let Some(token) = line.strip_suffix(':')
+        && token.replace('-', " ").eq_ignore_ascii_case("BREAKING CHANGE")
+    {
+        return Some(FooterEntry {
+            token: token.to_string(),
+            value: String::new(),
+        });
+    }
+
     /// Both recognised footer separators (`": "` and `" #"`) are two characters wide.
     const SEPARATOR_LEN: usize = 2;
 
-    let idx = match line.find(": ") {
-        Some(idx) => idx,
-        None => line.find(" #")?,
-    };
+    let idx = [line.find(": "), line.find(" #")].into_iter().flatten().min()?;
 
     if idx == 0 {
         return None;
@@ -1217,6 +1221,84 @@ mod tests {
 
         let cased = lint_message("Add Login Button To Page", &options);
         assert_eq!(cased.violations_before, Vec::<String>::new());
+    }
+
+    #[test]
+    fn should_validate_breaking_footer_before_other_footers() {
+        let options = LintOptions {
+            enforce_conventional_spec: true,
+            ..LintOptions::default()
+        };
+        let outcome = lint_message("feat: add api\n\nBREAKING CHANGE: \nRefs: 123", &options);
+        assert_eq!(
+            outcome.violations_before,
+            vec!["BREAKING CHANGE footer must include a description"]
+        );
+    }
+
+    #[test]
+    fn should_reject_empty_breaking_footer_after_autofix() {
+        let options = LintOptions {
+            enforce_conventional_spec: true,
+            autofix: true,
+            ..LintOptions::default()
+        };
+        let outcome = lint_message("feat: add api\n\nBREAKING CHANGE: ", &options);
+        assert_eq!(
+            outcome.violations_after,
+            vec!["BREAKING CHANGE footer must include a description"]
+        );
+    }
+
+    #[test]
+    fn should_enforce_single_line_policy_with_carriage_return_separators() {
+        let options = LintOptions {
+            body_policy: BodyPolicy::SingleLine,
+            ..LintOptions::default()
+        };
+        let outcome = lint_message("fix: add api\rbody line", &options);
+        assert_eq!(outcome.violations_before, vec!["Commit message must be a single line"]);
+    }
+
+    #[test]
+    fn should_require_body_when_only_multiple_footers_are_present() {
+        let options = LintOptions {
+            enforce_conventional_spec: true,
+            body_policy: BodyPolicy::RequireBody,
+            ..LintOptions::default()
+        };
+        let outcome = lint_message("feat: add api\n\nRefs: 123\nReviewed-by: sam", &options);
+        assert_eq!(
+            outcome.violations_before,
+            vec!["Commit message must include a body after a blank line"]
+        );
+    }
+
+    #[test]
+    fn should_preserve_adjacent_footers_during_autofix() {
+        let options = LintOptions {
+            enforce_conventional_spec: true,
+            autofix: true,
+            ..LintOptions::default()
+        };
+        let message = "feat: add api\n\nRefs: 123\nReviewed-by: sam";
+        let outcome = lint_message(message, &options);
+        assert_eq!(outcome.cleaned_message, message);
+        assert_eq!(outcome.warnings_after, Vec::<String>::new());
+    }
+
+    #[test]
+    fn should_parse_hash_footer_values_containing_colons() {
+        let options = LintOptions {
+            enforce_conventional_spec: true,
+            body_policy: BodyPolicy::RequireBody,
+            ..LintOptions::default()
+        };
+        let outcome = lint_message("feat: add api\n\nRefs #123: context", &options);
+        assert_eq!(
+            outcome.violations_before,
+            vec!["Commit message must include a body after a blank line"]
+        );
     }
 
     #[test]
