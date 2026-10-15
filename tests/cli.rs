@@ -944,12 +944,11 @@ fn lint_rejects_invalid_title_prefix_regex_flag() {
 #[test]
 fn lint_skips_when_merge_commit_in_progress() {
     let dir = tempdir().unwrap();
-    let msg_path = dir.path().join("msg.txt");
-    write_message(&msg_path, "Merge branch 'feature' into main\n");
-
     let git_dir = dir.path().join(".git");
     fs::create_dir_all(&git_dir).unwrap();
     fs::write(git_dir.join("MERGE_HEAD"), "deadbeef").unwrap();
+    let msg_path = git_dir.join("COMMIT_EDITMSG");
+    write_message(&msg_path, "Merge branch 'feature' into main\n");
 
     cargo::cargo_bin_cmd!("gitfluff")
         .arg("lint")
@@ -1186,9 +1185,9 @@ fn rule_arguments_reject_an_empty_regex_and_echo_the_raw_argument() {
 fn lint_skips_git_generated_commit_states() {
     for marker in ["MERGE_HEAD", "REVERT_HEAD", "CHERRY_PICK_HEAD"] {
         let dir = tempdir().unwrap();
-        let msg_path = dir.path().join("msg.txt");
-        write_message(&msg_path, "not a conventional commit at all\n");
         fs::create_dir_all(dir.path().join(".git")).unwrap();
+        let msg_path = dir.path().join(".git/COMMIT_EDITMSG");
+        write_message(&msg_path, "not a conventional commit at all\n");
         fs::write(dir.path().join(".git").join(marker), "deadbeef").unwrap();
 
         cargo::cargo_bin_cmd!("gitfluff")
@@ -1549,7 +1548,7 @@ fn hook_install_creates_commit_msg_script() {
     let dir = tempdir().unwrap();
     let git_dir = dir.path().join(".git");
     let hooks_dir = git_dir.join("hooks");
-    fs::create_dir_all(&hooks_dir).unwrap();
+    Command::new("git").arg("init").arg(dir.path()).assert().success();
 
     cargo::cargo_bin_cmd!("gitfluff")
         .args(["hook", "install", "commit-msg"])
@@ -1566,8 +1565,7 @@ fn hook_install_creates_commit_msg_script() {
 #[test]
 fn hook_behaves_like_precommit_example() {
     let dir = tempdir().unwrap();
-    let git_dir = dir.path().join(".git");
-    fs::create_dir_all(git_dir.join("hooks")).unwrap();
+    Command::new("git").arg("init").arg(dir.path()).assert().success();
 
     cargo::cargo_bin_cmd!("gitfluff")
         .args(["hook", "install", "commit-msg", "--write"])
@@ -1586,15 +1584,83 @@ fn hook_behaves_like_precommit_example() {
         .parent()
         .expect("bin directory")
         .to_path_buf();
-    let path_var = env::var("PATH").unwrap_or_default();
+    let path_var = env::var_os("PATH").unwrap_or_default();
+    let mut paths = vec![gitfluff_bin_dir];
+    paths.extend(env::split_paths(&path_var));
+    let hook_path = env::join_paths(paths).expect("valid hook PATH");
     let mut hook_cmd = Command::new("sh");
-    hook_cmd
-        .arg(&script_path)
-        .arg(&commit_msg_file)
-        .env("PATH", format!("{}:{}", gitfluff_bin_dir.display(), path_var));
+    hook_cmd.arg(&script_path).arg(&commit_msg_file).env("PATH", hook_path);
     hook_cmd.current_dir(dir.path());
     hook_cmd.assert().success();
 
     let cleaned = fs::read_to_string(&commit_msg_file).unwrap();
     assert_eq!(cleaned.trim_end(), "feat: add login");
+}
+
+#[test]
+fn hook_force_preserves_existing_hook_and_previous_backup() {
+    let dir = tempdir().unwrap();
+    Command::new("git").arg("init").arg(dir.path()).assert().success();
+    let hook = dir.path().join(".git/hooks/commit-msg");
+    fs::create_dir_all(hook.parent().unwrap()).unwrap();
+    fs::write(&hook, "original hook\n").unwrap();
+    fs::write(hook.with_extension("bak"), "older hook\n").unwrap();
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["hook", "install", "commit-msg", "--force"])
+        .current_dir(dir.path())
+        .assert()
+        .success();
+
+    assert_eq!(fs::read_to_string(hook.with_extension("bak")).unwrap(), "older hook\n");
+    assert_eq!(
+        fs::read_to_string(hook.with_extension("bak.1")).unwrap(),
+        "original hook\n"
+    );
+    assert_eq!(
+        fs::read_to_string(&hook).unwrap(),
+        "#!/bin/sh\nexec gitfluff lint \"$1\"\n"
+    );
+}
+
+#[test]
+fn hook_install_rejects_a_fake_git_directory() {
+    let dir = tempdir().unwrap();
+    fs::create_dir(dir.path().join(".git")).unwrap();
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["hook", "install", "commit-msg"])
+        .current_dir(dir.path())
+        .assert()
+        .code(2);
+    assert!(!dir.path().join(".git/hooks").exists());
+}
+
+#[test]
+fn hook_install_rejects_invalid_git_configuration() {
+    let dir = tempdir().unwrap();
+    Command::new("git").arg("init").arg(dir.path()).assert().success();
+    fs::write(dir.path().join(".git/config"), "[broken\n").unwrap();
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["hook", "install", "commit-msg"])
+        .current_dir(dir.path())
+        .assert()
+        .code(2);
+    assert!(!dir.path().join(".git/hooks/commit-msg").exists());
+}
+
+#[test]
+fn lint_validates_unrelated_files_while_a_merge_is_in_progress() {
+    let dir = tempdir().unwrap();
+    fs::create_dir(dir.path().join(".git")).unwrap();
+    fs::write(dir.path().join(".git/MERGE_HEAD"), "deadbeef").unwrap();
+    let message = dir.path().join("title.txt");
+    fs::write(&message, "invalid title").unwrap();
+    cargo::cargo_bin_cmd!("gitfluff")
+        .arg("lint")
+        .arg("--from-file")
+        .arg(&message)
+        .current_dir(dir.path())
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("type may not be empty"));
 }

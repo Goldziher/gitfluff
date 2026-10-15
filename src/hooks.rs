@@ -1,4 +1,5 @@
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
@@ -19,7 +20,8 @@ pub fn install_hook(start_dir: &Path, kind: HookKind, write: bool, force: bool) 
     let hook_name = hook_filename(kind);
     let hook_path = hooks_dir.join(hook_name);
 
-    if hook_path.exists() && !force {
+    let existing_hook = hook_path.symlink_metadata().is_ok();
+    if existing_hook && !force {
         bail!(
             "hook `{}` already exists at {} (use --force to overwrite)",
             hook_name,
@@ -28,53 +30,68 @@ pub fn install_hook(start_dir: &Path, kind: HookKind, write: bool, force: bool) 
     }
 
     let script = hook_script(kind, write)?;
-    fs::write(&hook_path, script).with_context(|| format!("failed to write hook to {}", hook_path.display()))?;
-    apply_executable_permissions(&hook_path)?;
+    if existing_hook {
+        backup_hook(&hook_path)?;
+    }
+    write_hook_atomically(&hook_path, &script)?;
 
     Ok(hook_path)
 }
 
-fn locate_git_dir(start_dir: &Path) -> Result<PathBuf> {
-    let mut current = start_dir;
-
+fn backup_hook(hook_path: &Path) -> Result<()> {
+    let content = fs::read(hook_path)
+        .with_context(|| format!("failed to read existing hook {} for backup", hook_path.display()))?;
+    let permissions = fs::metadata(hook_path)
+        .with_context(|| format!("failed to read hook permissions at {}", hook_path.display()))?
+        .permissions();
+    let mut index = 0;
     loop {
-        let candidate = current.join(".git");
-        if candidate.is_dir() {
-            return Ok(candidate);
-        }
-        if candidate.is_file() {
-            return resolve_gitdir_file(&candidate);
-        }
-        match current.parent() {
-            Some(parent) => current = parent,
-            None => bail!("no .git directory found from {}", start_dir.display()),
-        }
+        let backup = if index == 0 {
+            hook_path.with_extension("bak")
+        } else {
+            hook_path.with_extension(format!("bak.{index}"))
+        };
+        let mut file = match fs::OpenOptions::new().write(true).create_new(true).open(&backup) {
+            Ok(file) => file,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {
+                index += 1;
+                continue;
+            }
+            Err(error) => return Err(error).with_context(|| format!("failed to create backup {}", backup.display())),
+        };
+        file.write_all(&content)
+            .with_context(|| format!("failed to write hook backup {}", backup.display()))?;
+        file.set_permissions(permissions)
+            .with_context(|| format!("failed to preserve hook backup permissions at {}", backup.display()))?;
+        return Ok(());
     }
 }
 
-fn resolve_gitdir_file(git_file: &Path) -> Result<PathBuf> {
-    let content =
-        fs::read_to_string(git_file).with_context(|| format!("failed to read gitdir file {}", git_file.display()))?;
-    let content = content.trim();
-
-    let prefix = "gitdir:";
-    if let Some(rest) = content.strip_prefix(prefix) {
-        let raw = rest.trim();
-        let path = Path::new(raw);
-        let resolved = if path.is_absolute() {
-            path.to_path_buf()
-        } else {
-            git_file
-                .parent()
-                .context("gitdir file missing parent")?
-                .join(path)
-                .canonicalize()
-                .with_context(|| format!("failed to resolve gitdir path {}", path.display()))?
-        };
-        Ok(resolved)
-    } else {
-        bail!("unexpected gitdir file format in {}", git_file.display());
+fn write_hook_atomically(hook_path: &Path, script: &str) -> Result<()> {
+    let temporary_path = hook_path.with_extension(format!("gitfluff-{}.tmp", std::process::id()));
+    let mut file = fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary_path)
+        .with_context(|| format!("failed to create temporary hook {}", temporary_path.display()))?;
+    let result = (|| {
+        file.write_all(script.as_bytes())
+            .context("failed to write temporary hook")?;
+        apply_executable_permissions(&temporary_path)?;
+        drop(file);
+        fs::rename(&temporary_path, hook_path)
+            .with_context(|| format!("failed to install hook at {}", hook_path.display()))
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary_path);
     }
+    result
+}
+
+fn locate_git_dir(start_dir: &Path) -> Result<PathBuf> {
+    let directory = git_config_output(start_dir, &["rev-parse", "--absolute-git-dir"])?
+        .context("git did not return a repository directory")?;
+    Ok(PathBuf::from(directory))
 }
 
 /// The directory git will actually execute hooks from, for the repository containing `start_dir`.
@@ -100,7 +117,7 @@ fn resolve_hooks_dir(start_dir: &Path, git_dir: &Path) -> Result<PathBuf> {
 /// In a linked worktree `git_dir` is `<common>/worktrees/<name>`, and git never runs hooks from
 /// that per-worktree directory -- so writing one there installs a hook that silently never fires.
 /// Git records the shared dir in a `commondir` file beside HEAD; read it rather than shelling out,
-/// matching how `resolve_gitdir_file` above handles the `.git` pointer file.
+/// without assuming the metadata directory belongs to the main worktree.
 fn common_git_dir(git_dir: &Path) -> Result<PathBuf> {
     let commondir_file = git_dir.join("commondir");
     if !commondir_file.is_file() {
@@ -124,13 +141,10 @@ fn common_git_dir(git_dir: &Path) -> Result<PathBuf> {
 }
 
 fn git_config_value(dir: &Path, key: &str) -> Result<Option<String>> {
-    git_config_output(dir, &["config", "--get", key])
+    git_config_output(dir, &["config", "--path", "--get", key])
 }
 
-/// Runs `git -C <dir> <args>`, returning None when git exits nonzero or prints nothing.
-///
-/// `git config --get` exits 1 for an unset key, which is an answer rather than a failure, so a
-/// nonzero exit must not abort the install.
+/// Runs git, accepting exit code 1 only for an unset configuration key.
 fn git_config_output(dir: &Path, args: &[&str]) -> Result<Option<String>> {
     let output = std::process::Command::new("git")
         .arg("-C")
@@ -140,7 +154,14 @@ fn git_config_output(dir: &Path, args: &[&str]) -> Result<Option<String>> {
         .with_context(|| format!("failed to run `git {}`", args.join(" ")))?;
 
     if !output.status.success() {
-        return Ok(None);
+        if args.first() == Some(&"config") && output.status.code() == Some(1) {
+            return Ok(None);
+        }
+        bail!(
+            "git {} failed: {}",
+            args.join(" "),
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
     }
 
     let value = String::from_utf8_lossy(&output.stdout).trim().to_string();
@@ -260,7 +281,11 @@ mod tests {
         };
         let expected_hook = common_dir.join("hooks").join("commit-msg");
 
-        assert_eq!(hook_path, expected_hook, "Hook should be installed in common git dir");
+        assert_eq!(
+            hook_path.canonicalize().unwrap(),
+            expected_hook.canonicalize().unwrap(),
+            "Hook should be installed in common git dir"
+        );
         assert!(expected_hook.exists(), "Hook file should exist in common git dir");
     }
 

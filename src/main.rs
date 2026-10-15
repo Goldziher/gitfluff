@@ -138,7 +138,9 @@ fn run_lint(args: LintArgs) -> Result<i32> {
     // message being linted really is that repository's pending commit message file. A
     // `--message` string may well be a PR title validated from a checkout that happens to
     // be mid-merge.
-    if matches!(message_data.source, MessageSource::File(_)) && git_sequencer_in_progress(&cwd) {
+    if let MessageSource::File(path) = &message_data.source
+        && git_sequencer_in_progress(&cwd, path)
+    {
         return Ok(0);
     }
 
@@ -651,9 +653,14 @@ fn has_generated_subject(message: &str) -> bool {
 
 /// Returns `true` when git is mid-merge, mid-revert, mid-cherry-pick or mid-rebase in the
 /// repository containing `start_dir`.
-fn git_sequencer_in_progress(start_dir: &std::path::Path) -> bool {
+fn git_sequencer_in_progress(start_dir: &std::path::Path, message_path: &std::path::Path) -> bool {
     match find_git_dir(start_dir) {
-        Some(git_dir) => GIT_SEQUENCER_MARKERS.iter().any(|marker| git_dir.join(marker).exists()),
+        Some(git_dir) => {
+            let pending_message = git_dir.join("COMMIT_EDITMSG").canonicalize();
+            let input_message = message_path.canonicalize();
+            matches!((pending_message, input_message), (Ok(pending), Ok(input)) if pending == input)
+                && GIT_SEQUENCER_MARKERS.iter().any(|marker| git_dir.join(marker).exists())
+        }
         None => false,
     }
 }
