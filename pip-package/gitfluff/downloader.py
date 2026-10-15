@@ -77,15 +77,15 @@ def _download(url: str, destination: Path) -> None:
 def _extract(archive: Path, ext: str, destination: Path) -> None:
     if ext == "zip":
         with zipfile.ZipFile(archive) as zf:
-            for name in zf.namelist():
-                if name.endswith("gitfluff") or name.endswith("gitfluff.exe"):
-                    with zf.open(name) as src, destination.open("wb") as dst:
+            for member in zf.infolist():
+                if not member.is_dir() and PurePosixPath(member.filename).name == destination.name:
+                    with zf.open(member) as src, destination.open("wb") as dst:
                         dst.write(src.read())
                     return
     else:
         with tarfile.open(archive, "r:gz") as tar:
             for member in tar.getmembers():
-                if member.name.endswith("gitfluff") or member.name.endswith("gitfluff.exe"):
+                if member.isfile() and PurePosixPath(member.name).name == destination.name:
                     with tar.extractfile(member) as src, destination.open("wb") as dst:
                         dst.write(src.read())
                     return
@@ -171,14 +171,16 @@ def ensure_binary() -> str:
     url, ext, archive_name = _asset(__version__)
     print(f"Downloading gitfluff binary v{__version__}...", file=sys.stderr)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory(dir=binary_path.parent) as tmpdir:
         archive_path = Path(tmpdir) / f"gitfluff.{ext}"
+        staged_binary = Path(tmpdir) / binary_path.name
         _download(url, archive_path)
         _verify_checksum(archive_path, archive_name, __version__)
-        _extract(archive_path, ext, binary_path)
+        _extract(archive_path, ext, staged_binary)
 
-    if platform.system().lower() != "windows":
-        binary_path.chmod(0o755)
+        if platform.system().lower() != "windows":
+            staged_binary.chmod(0o755)
+        staged_binary.replace(binary_path)
 
     print("Binary downloaded successfully!", file=sys.stderr)
     return str(binary_path)
@@ -186,4 +188,5 @@ def ensure_binary() -> str:
 
 def run_gitfluff(args: list[str]) -> int:
     binary = ensure_binary()
-    return subprocess.call([binary, *args])
+    status = subprocess.call([binary, *args])
+    return 128 - status if status < 0 else status
