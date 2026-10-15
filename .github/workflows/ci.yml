@@ -39,13 +39,32 @@ jobs:
 
   test:
     name: Test
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: cargo test
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "24"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.8"
+      - name: Install wrapper dependencies
+        run: |
+          npm install --prefix npm-package --ignore-scripts --package-lock=false
+          python -m pip install ./pip-package
+      - name: Test npm wrapper
+        run: node --test npm-package/tests/*.test.js
+      - name: Test Python wrapper
+        run: python -m unittest discover -s pip-package/tests
 
   build:
     name: Build

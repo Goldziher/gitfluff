@@ -1,5 +1,29 @@
 version: "3"
 tasks:
+  build:
+    desc: Build the release binary
+    cmds:
+      - cargo build --release --locked
+  test:
+    desc: Run the Rust and distribution wrapper tests
+    cmds:
+      - cargo test --locked
+      - node --test npm-package/tests/*.test.js
+      - python3 -m unittest discover -s pip-package/tests
+  lint:
+    desc: Lint the repository with poly
+    cmds:
+      - poly lint .
+  format:
+    desc: Format the repository with poly
+    cmds:
+      - poly fmt --fix .
+  check:
+    desc: Check formatting, lint, and run tests
+    cmds:
+      - poly fmt --check .
+      - task: lint
+      - task: test
   governance:generate:
     desc: Generate native AI governance outputs
     cmds:

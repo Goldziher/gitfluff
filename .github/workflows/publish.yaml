@@ -110,10 +110,21 @@ jobs:
           release_assets_exist=false
 
           if gh release view "$tag" >/dev/null 2>&1; then
-            count="$(gh release view "$tag" --json assets --jq '.assets | length')"
-            if [ "${count:-0}" -gt 0 ]; then
-              release_assets_exist=true
-            fi
+            assets="$(gh release view "$tag" --json assets --jq '.assets[].name')"
+            release_assets_exist=true
+            expected_assets=(
+              gitfluff-x86_64-unknown-linux-gnu.tar.gz
+              gitfluff-aarch64-unknown-linux-gnu.tar.gz
+              gitfluff-x86_64-apple-darwin.tar.gz
+              gitfluff-aarch64-apple-darwin.tar.gz
+              gitfluff-x86_64-pc-windows-gnu.zip
+              "gitfluff_${tag#v}_checksums.txt"
+            )
+            for asset in "${expected_assets[@]}"; do
+              if ! grep -Fxq "$asset" <<< "$assets"; then
+                release_assets_exist=false
+              fi
+            done
           fi
 
           echo "release_assets_exist=$release_assets_exist" >> "$GITHUB_OUTPUT"
@@ -186,8 +197,11 @@ jobs:
 
   publish_npm:
     name: Publish npm
-    needs: meta
-    if: needs.meta.outputs.npm_exists != 'true'
+    needs: [meta, release_assets]
+    if: >-
+      !cancelled() && needs.meta.result == 'success' &&
+      (needs.release_assets.result == 'success' || needs.release_assets.result == 'skipped') &&
+      needs.meta.outputs.npm_exists != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Setup pnpm
@@ -223,8 +237,11 @@ jobs:
 
   publish_pypi:
     name: Publish PyPI
-    needs: meta
-    if: needs.meta.outputs.pypi_exists != 'true'
+    needs: [meta, release_assets]
+    if: >-
+      !cancelled() && needs.meta.result == 'success' &&
+      (needs.release_assets.result == 'success' || needs.release_assets.result == 'skipped') &&
+      needs.meta.outputs.pypi_exists != 'true'
     runs-on: ubuntu-latest
     environment: pypi
     steps:

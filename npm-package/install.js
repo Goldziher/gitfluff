@@ -8,6 +8,7 @@ const tar = require("tar");
 const AdmZip = require("adm-zip");
 
 const { version } = require("./package.json");
+const MAX_REDIRECTS = 5;
 
 function platformTriple() {
   const type = os.type();
@@ -49,7 +50,7 @@ function ensureBinDir() {
   return binDir;
 }
 
-function download(url, dest) {
+function download(url, dest, redirectsRemaining = MAX_REDIRECTS) {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
     const client = urlObj.protocol === "https:" ? https : http;
@@ -64,7 +65,10 @@ function download(url, dest) {
       (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           req.destroy();
-          return download(res.headers.location, dest).then(resolve, reject);
+          if (redirectsRemaining === 0) return reject(new Error("Too many redirects"));
+          return Promise.resolve()
+            .then(() => download(new URL(res.headers.location, url).href, dest, redirectsRemaining - 1))
+            .then(resolve, reject);
         }
 
         if (res.statusCode !== 200) {
@@ -97,7 +101,7 @@ function download(url, dest) {
   });
 }
 
-function downloadText(url) {
+function downloadText(url, redirectsRemaining = MAX_REDIRECTS) {
   return new Promise((resolve, reject) => {
     const urlObj = new URL(url);
     const client = urlObj.protocol === "https:" ? https : http;
@@ -112,7 +116,10 @@ function downloadText(url) {
       (res) => {
         if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
           req.destroy();
-          return downloadText(res.headers.location).then(resolve, reject);
+          if (redirectsRemaining === 0) return reject(new Error("Too many redirects"));
+          return Promise.resolve()
+            .then(() => downloadText(new URL(res.headers.location, url).href, redirectsRemaining - 1))
+            .then(resolve, reject);
         }
 
         if (res.statusCode !== 200) {
@@ -175,6 +182,46 @@ async function verifyChecksum(filePath, archiveName) {
   console.log("Checksum verified successfully.");
 }
 
+async function extractBinary(archivePath, ext, binaryPath) {
+  const binaryName = path.basename(binaryPath);
+  const stagingDir = fs.mkdtempSync(path.join(path.dirname(binaryPath), ".gitfluff-"));
+  try {
+    let stagedBinary;
+    if (ext === "zip") {
+      const zip = new AdmZip(archivePath);
+      const entry = zip.getEntries().find((item) => {
+        const fileType = (item.attr >>> 16) & 0o170000;
+        return (
+          !item.isDirectory &&
+          (fileType === 0 || fileType === 0o100000) &&
+          path.posix.basename(item.entryName) === binaryName
+        );
+      });
+      if (entry) {
+        stagedBinary = path.join(stagingDir, binaryName);
+        fs.writeFileSync(stagedBinary, entry.getData());
+      }
+    } else {
+      await tar.extract({
+        file: archivePath,
+        cwd: stagingDir,
+        filter: (entryPath, entry) => {
+          const safePath =
+            !path.posix.isAbsolute(entryPath) && !entryPath.includes("\\") && !entryPath.split("/").includes("..");
+          if (!safePath || entry.type !== "File" || path.posix.basename(entryPath) !== binaryName) return false;
+          stagedBinary = path.join(stagingDir, entryPath);
+          return true;
+        },
+      });
+    }
+    if (!stagedBinary) throw new Error("Binary not found in downloaded archive");
+    if (os.type() !== "Windows_NT") fs.chmodSync(stagedBinary, 0o755);
+    fs.renameSync(stagedBinary, binaryPath);
+  } finally {
+    fs.rmSync(stagingDir, { recursive: true, force: true });
+  }
+}
+
 async function install() {
   try {
     const binDir = ensureBinDir();
@@ -196,26 +243,9 @@ async function install() {
       await verifyChecksum(archivePath, archiveName);
 
       console.log("Extracting binary...");
-      if (ext === "zip") {
-        const zip = new AdmZip(archivePath);
-        const entry = zip.getEntries().find((e) => e.entryName.endsWith(binaryName));
-        if (!entry) {
-          throw new Error("Binary not found in downloaded archive");
-        }
-        zip.extractEntryTo(entry, binDir, false, true);
-      } else {
-        await tar.extract({
-          file: archivePath,
-          cwd: binDir,
-          filter: (entryPath) => entryPath.endsWith(binaryName),
-        });
-      }
+      await extractBinary(archivePath, ext, binaryPath);
     } finally {
       fs.rmSync(archivePath, { force: true });
-    }
-
-    if (os.type() !== "Windows_NT") {
-      fs.chmodSync(binaryPath, 0o755);
     }
 
     console.log("gitfluff binary installed successfully.");
@@ -225,4 +255,8 @@ async function install() {
   }
 }
 
-install();
+if (require.main === module) {
+  install();
+}
+
+module.exports = { extractBinary, download, downloadText };

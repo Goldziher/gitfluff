@@ -8,6 +8,26 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-15
+
+### Fixed
+
+- Removed the broken Homebrew submodule that prevented pre-commit and prek from installing the
+  hook ([#2](https://github.com/Goldziher/gitfluff/issues/2)). The tap is maintained separately.
+- Footer validation now checks every footer entry, preserves adjacent footers during autofix,
+  and correctly parses hash-separated values containing colons. Empty `BREAKING CHANGE`
+  descriptions remain errors after cleanup.
+- Single-line validation now recognizes carriage-return line separators.
+- Hook installation now validates the Git repository and configuration, backs up hooks replaced
+  with `--force`, and installs scripts atomically.
+- The in-progress-merge bypass now applies only to the repository’s actual `COMMIT_EDITMSG`, so
+  unrelated message files are still linted.
+- Distribution wrappers now report child termination by signal as a failure, select the exact
+  binary filename from archives, and install downloaded binaries atomically.
+- The npm downloader now resolves relative redirect URLs and limits redirect chains.
+- npm and PyPI publishing now wait for release binaries. Release retries check for every
+  platform archive and the checksum manifest before skipping asset generation.
+
 ## [0.9.0] - 2026-09-25
 
 ### Breaking

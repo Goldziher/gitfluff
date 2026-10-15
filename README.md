@@ -54,7 +54,7 @@ cargo install gitfluff
 One-off runs:
 
 ```bash
-pnpm dlx gitfluff@0.9.0 --version
+pnpm dlx gitfluff@0.9.1 --version
 uvx gitfluff --version
 ```
 
@@ -99,7 +99,7 @@ Notes:
 
 `gitfluff` works with pre-commit, Husky, Lefthook, and raw Git hooks. If you already use a hook manager, just call `gitfluff lint` from your commit-msg hook. It accepts the commit message path as the first argument.
 
-Hook installation respects `core.hooksPath` (including relative paths resolved against the working-tree top level) and works correctly in linked git worktrees.
+Hook installation respects `core.hooksPath` (including relative paths resolved against the working-tree top level) and works correctly in linked git worktrees. To replace an existing hook, use `--force`; the original is backed up as `commit-msg.bak`, or `commit-msg.bak.1`, `commit-msg.bak.2`, and so on if a backup already exists.
 
 ## Conventional Commits compliance
 
