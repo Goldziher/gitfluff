@@ -8,7 +8,7 @@ Use MCP server: ai-rulez mcp
 Regenerate: ai-rulez generate
 
 Docs: https://github.com/Goldziher/ai-rulez
-Content-Hash: blake3:e83fec323e15faf8e3c8b79d8c5cd5b1a0d9f87bba9037505ad18b9b646dcf8a
+Content-Hash: blake3:e1eb56103c06ae4fb8b89f08b73837cb37476a1e3893c4d71c281dce4a52e5ab
 -->
 
 # gitfluff
@@ -72,6 +72,12 @@ Always test commit messages locally before pushing:
 gitfluff lint --stdin <<< "feat(scope): description"
 ```
 
+### customer-data-boundary
+
+**Priority:** critical
+
+Customer data and anything derived from it stays in controlled systems: never a public or secret Gist, paste site, file-sharing service, image host, third-party dashboard or LLM playground. Write local debugging output to /tmp or another untracked location, never a tracked directory.
+
 ### legacy-conventional-commits-compliance
 
 **Priority:** critical
@@ -100,19 +106,19 @@ Never force-push a shared branch. Pull before pushing. Use `--force-with-lease`,
 
 **Priority:** critical
 
-Never hardcode a secret, API key, token or password — read it from the environment or a secret manager. Never log or echo a sensitive value. Refuse to commit a file containing one.
+Never hardcode a secret, API key, token or password — read it from the environment or a secret manager. Never log or echo a sensitive value. Refuse to commit a file containing one. Never give a missing secret a default value; fail with a clear error instead.
 
 ### verification-before-completion
 
 **Priority:** critical
 
-Verify before acting and before claiming done. Check current state (branch, working directory, running processes) before changing it. Run the test and see it pass, check the file exists, watch the build succeed. Evidence before assertions — if you cannot verify, say so instead of claiming success.
+Verify before acting and before claiming done. Check current state (branch, working directory, running processes) before changing it. Run the test and see it pass, check the file exists, watch the build succeed. Evidence before assertions — if you cannot verify, say so instead of claiming success. A green result may test nothing: confirm the fixture is valid input and the test was collected before trusting it.
 
 ### agent-workflow
 
 **Priority:** high
 
-Delegate non-trivial implementation, research and file exploration to subagents, launching independent ones in a single message. Never trust a subagent summary — it describes intent, not what happened; read the actual file changes and fix what is wrong before reporting done. Iterate: delegate → review → fix → verify.
+Delegate non-trivial implementation, research and file exploration to subagents, launching independent ones in a single message. Never trust a subagent summary — it describes intent, not what happened; read the actual file changes and fix what is wrong before reporting done. Iterate: delegate → review → fix → verify. Give each subagent a self-contained brief (goal, files, constraints, what to verify and what to return). Run risky or long-lived parallel work in its own git worktree, and check you are in the right one before edits. When a finished subagent has a large context, start a fresh one with a short brief of what changed and what to check instead of resuming it, because resuming re-writes its whole history to the cache.
 
 ### atomic-commits
 
@@ -171,6 +177,12 @@ gitfluff is distributed as prebuilt binaries through multiple package managers. 
 - Ensure binary download URLs match the release tag format.
 - Keep wrapper packages thin -- they should only download and exec the binary.
 - Update all wrapper package versions in lockstep (see version-synchronization rule).
+
+### generated-files
+
+**Priority:** high
+
+Never hand-edit a generated file (lock files, generated specs, rendered config). Edit the source and rerun the generator, also to resolve a merge conflict.
 
 ### git-hook-integration
 
@@ -383,7 +395,7 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 - **Rust 1.70+** - Install via [rustup](https://rustup.rs/).
 - **Cargo** - Included with Rust.
 - **poly** - Multi-language linter and formatter (polylint).
-- **Task** - Task runner (install via `brew install go-task` or see [taskfile.dev](https://taskfile.dev/)).
+- **mise** - Toolchain and task runner (see [mise.jdx.dev](https://mise.jdx.dev/)); `mise install` installs the pinned tools.
 
 ### Building
 
@@ -430,15 +442,15 @@ poly lint .
 
 ### Task Runner
 
-The project uses [Task](https://taskfile.dev/) as a task runner. Run `task` to see available commands:
+The project uses [mise](https://mise.jdx.dev/) as a task runner. Run `mise tasks` to see available commands:
 
 ```bash
-task build     # Build release binary
-task test      # Run all tests
-task lint      # Run all linters via poly
-task format    # Format code
-task check     # Run lint + test
-task setup     # Install dependencies and hooks
+mise run build     # Build release binary
+mise run test      # Run all tests
+mise run lint      # Run all linters via poly
+mise run format    # Format code
+mise run check     # Run format check + lint + test
+mise run setup     # Install the toolchain, dependencies and hooks
 ```
 
 ### Commit Hooks

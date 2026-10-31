@@ -15,7 +15,7 @@ x-ai-rulez:
 - **Rust 1.70+** - Install via [rustup](https://rustup.rs/).
 - **Cargo** - Included with Rust.
 - **poly** - Multi-language linter and formatter (polylint).
-- **Task** - Task runner (install via `brew install go-task` or see [taskfile.dev](https://taskfile.dev/)).
+- **mise** - Toolchain and task runner (see [mise.jdx.dev](https://mise.jdx.dev/)); `mise install` installs the pinned tools.
 
 ### Building
 
@@ -62,15 +62,15 @@ poly lint .
 
 ### Task Runner
 
-The project uses [Task](https://taskfile.dev/) as a task runner. Run `task` to see available commands:
+The project uses [mise](https://mise.jdx.dev/) as a task runner. Run `mise tasks` to see available commands:
 
 ```bash
-task build     # Build release binary
-task test      # Run all tests
-task lint      # Run all linters via poly
-task format    # Format code
-task check     # Run lint + test
-task setup     # Install dependencies and hooks
+mise run build     # Build release binary
+mise run test      # Run all tests
+mise run lint      # Run all linters via poly
+mise run format    # Format code
+mise run check     # Run format check + lint + test
+mise run setup     # Install the toolchain, dependencies and hooks
 ```
 
 ### Commit Hooks
