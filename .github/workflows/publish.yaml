@@ -140,6 +140,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
+      # ~keep No rust-toolchain.toml; this job installs the stable channel directly.
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
         with:
@@ -170,6 +171,7 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag || '' }}
 
+      # ~keep No rust-toolchain.toml; this job installs the stable channel directly.
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@v1
         with:
