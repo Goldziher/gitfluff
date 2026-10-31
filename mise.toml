@@ -11,5 +11,38 @@ node = "26.12.1"
 pnpm = "12.15.0"
 actionlint = "1.7.12"
 
+[tasks.setup]
+description = "Install the toolchain, fetch Rust dependencies and install governance hooks"
+run = ["mise install", "cargo fetch --locked", { task = "governance:hooks:install" }]
+
+[tasks.build]
+description = "Build the release binary"
+run = "cargo build --release --locked"
+
+[tasks.test]
+description = "Run the Rust and distribution wrapper tests"
+run = [
+  "cargo test --locked",
+  "node --test npm-package/tests/*.test.js",
+  "python3 -m unittest discover -s pip-package/tests",
+]
+
+[tasks.check]
+description = "Check formatting, lint, and run tests"
+run = [{ task = "format:check" }, { task = "lint" }, { task = "test" }]
+
+[tasks."governance:generate"]
+description = "Generate native AI governance outputs"
+run = "npx -y ai-rulez@latest generate --no-local --strict-config"
+
+[tasks."governance:check"]
+description = "Validate native AI governance and freshness"
+run = [
+  "npx -y ai-rulez@latest migrate okf --check",
+  "npx -y ai-rulez@latest validate --strict --no-local",
+  "npx -y ai-rulez@latest lock --check",
+  "npx -y ai-rulez@latest generate --check --no-local --strict-config",
+]
+
 [task_config]
 includes = ["mise-tasks", "mise-tasks/shared.toml"]
