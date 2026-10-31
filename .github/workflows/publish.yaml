@@ -132,7 +132,7 @@ jobs:
     name: Publish GitHub release assets
     needs: meta
     if: needs.meta.outputs.release_assets_exist != 'true'
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - name: Checkout
         uses: actions/checkout@v7
