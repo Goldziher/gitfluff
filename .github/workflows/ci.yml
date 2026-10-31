@@ -18,6 +18,13 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  toolchain:
+    name: Toolchain baseline
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: xberg-io/actions/check-toolchain@v1
+
   validate:
     uses: xberg-io/actions/.github/workflows/reusable-validate.yml@v1
     with:
@@ -51,9 +58,11 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: cargo test
-      - uses: actions/setup-node@v5
+      - uses: xberg-io/actions/setup-mise@v1
         with:
-          node-version: "24"
+          tools: node
+      # ~keep 3.8 is the oldest Python the wrapper supports, and mise cannot install it: the
+      # ~keep python-build-standalone 3.8 builds carry no GitHub artifact attestations.
       - uses: actions/setup-python@v6
         with:
           python-version: "3.8"
