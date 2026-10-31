@@ -6,7 +6,12 @@
   "bin": {
     "gitfluff": "./bin/gitfluff.js"
   },
-  "files": ["bin", "index.js", "install.js", "README.md"],
+  "files": [
+    "bin",
+    "index.js",
+    "install.js",
+    "README.md"
+  ],
   "main": "index.js",
   "scripts": {
     "postinstall": "node install.js"
@@ -15,11 +20,17 @@
     "type": "git",
     "url": "git+https://github.com/Goldziher/gitfluff.git"
   },
-  "keywords": ["git", "commit", "lint", "conventional", "format"],
+  "keywords": [
+    "git",
+    "commit",
+    "lint",
+    "conventional",
+    "format"
+  ],
   "author": "Na'aman Hirschfeld <nhirschfeld@gmail.com>",
   "dependencies": {
     "adm-zip": "^0.6.1",
     "tar": "^7.5.22"
   },
-  "packageManager": "pnpm@12.11.2"
+  "packageManager": "pnpm@12.15.0"
 }

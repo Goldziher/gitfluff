@@ -1,0 +1,15 @@
+# Versions follow the xberg-io/toolchains baseline named in toolchains.toml. CI installs Rust with
+# dtolnay/rust-toolchain; it is not pinned here. ~keep
+[settings]
+lockfile = true
+lockfile_platforms = ["linux-x64", "linux-arm64", "macos-arm64", "windows-x64"]
+
+[tools]
+"github:Goldziher/poly" = "0.31.2"
+python = "3.13.18"
+node = "26.12.1"
+pnpm = "12.15.0"
+actionlint = "1.7.12"
+
+[task_config]
+includes = ["mise-tasks", "mise-tasks/shared.toml"]
