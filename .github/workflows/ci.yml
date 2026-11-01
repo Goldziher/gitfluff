@@ -50,7 +50,9 @@ jobs:
     name: Test
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-26, windows-latest]
+        # ~keep ubuntu-24.04, not ubuntu-latest: setup-python publishes no Python 3.8 build for Ubuntu
+        # ~keep 26.04, and the wrapper test below needs the 3.8 floor.
+        os: [ubuntu-24.04, macos-26, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
