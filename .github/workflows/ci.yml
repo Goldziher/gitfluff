@@ -68,11 +68,11 @@ jobs:
       - uses: xberg-io/actions/setup-mise@v1
         with:
           tools: node
-      # ~keep 3.8 is the oldest Python the wrapper supports, and mise cannot install it: the
-      # ~keep python-build-standalone 3.8 builds carry no GitHub artifact attestations.
+      # ~keep 3.11 is the oldest Python the wrapper supports; mise installs only the baseline's
+      # ~keep newest line, so the floor comes from setup-python.
       - uses: actions/setup-python@v7
         with:
-          python-version: "3.8"
+          python-version: "3.11"
       - name: Install wrapper dependencies
         run: |
           npm install --prefix npm-package --ignore-scripts --package-lock=false
