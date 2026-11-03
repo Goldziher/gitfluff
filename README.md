@@ -54,7 +54,7 @@ cargo install gitfluff
 One-off runs:
 
 ```bash
-pnpm dlx gitfluff@0.9.1 --version
+pnpm dlx gitfluff@0.10.0 --version
 uvx gitfluff --version
 ```
 

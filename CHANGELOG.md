@@ -8,6 +8,14 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-03
+
+### Added
+
+- gitfluff is now also a library: `lint`, `config`, `presets` and `hooks` plus a clap-free `api`
+  (`resolve_lint_options`, `lint_with_config`). Build with `default-features = false` to drop the
+  command line and clap (#5).
+
 ### Changed
 
 - Minimum supported versions raised: Rust 1.99.

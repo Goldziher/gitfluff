@@ -15,7 +15,7 @@ pnpm add -g gitfluff
 **Run without installation:**
 
 ```bash
-pnpm dlx gitfluff@0.9.1 --version
+pnpm dlx gitfluff@0.10.0 --version
 ```
 
 **Lint a commit message:**
@@ -71,7 +71,7 @@ default_install_hook_types:
 
 repos:
   - repo: https://github.com/Goldziher/gitfluff
-    rev: v0.9.1
+    rev: v0.10.0
     hooks:
       - id: gitfluff-lint
         stages: [commit-msg]
