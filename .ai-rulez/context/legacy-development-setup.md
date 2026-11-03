@@ -12,7 +12,7 @@ x-ai-rulez:
 
 ### Prerequisites
 
-- Rust 1.70+ (install via [rustup](https://rustup.rs/))
+- Rust 1.99+ (install via [rustup](https://rustup.rs/))
 - Cargo (included with Rust)
 
 ### Building from Source

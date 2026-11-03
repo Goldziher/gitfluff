@@ -12,7 +12,7 @@ x-ai-rulez:
 
 ### Prerequisites
 
-- **Rust 1.70+** - Install via [rustup](https://rustup.rs/).
+- **Rust 1.99+** - Install via [rustup](https://rustup.rs/).
 - **Cargo** - Included with Rust.
 - **poly** - Multi-language linter and formatter (polylint).
 - **mise** - Toolchain and task runner (see [mise.jdx.dev](https://mise.jdx.dev/)); `mise install` installs the pinned tools.
