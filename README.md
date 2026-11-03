@@ -95,6 +95,30 @@ Notes:
 - Enforce ticket references without teaching everyone a new workflow.
 - Stop emoji and non-ASCII characters when your tooling requires it.
 
+## Library usage
+
+gitfluff is also a Rust library. Disable the default `cli` feature to drop `clap`:
+
+```toml
+[dependencies]
+gitfluff = { version = "0.9", default-features = false }
+```
+
+```rust
+use gitfluff::{LintSettings, lint_with_config, load_config};
+
+let cwd = std::env::current_dir()?;
+let loaded = load_config(None, &cwd)?;
+let outcome = lint_with_config(
+    "feat: add login\n",
+    loaded.as_ref().map(|(path, config)| (path.as_path(), config)),
+    &LintSettings::default(),
+)?;
+assert!(outcome.violations_before.is_empty());
+```
+
+`resolve_lint_options` returns the resolved `LintOptions` for use with `lint_message`.
+
 ## Hooks and tooling
 
 `gitfluff` works with pre-commit, Husky, Lefthook, and raw Git hooks. If you already use a hook manager, just call `gitfluff lint` from your commit-msg hook. It accepts the commit message path as the first argument.

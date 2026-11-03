@@ -3,11 +3,11 @@ use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use clap::ValueEnum;
 
-#[derive(Debug, Clone, Copy, ValueEnum)]
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "cli", derive(clap::ValueEnum))]
 pub enum HookKind {
-    #[clap(name = "commit-msg")]
+    #[cfg_attr(feature = "cli", clap(name = "commit-msg"))]
     CommitMsg,
 }
 

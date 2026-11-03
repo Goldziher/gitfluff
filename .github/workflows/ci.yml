@@ -65,6 +65,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run tests
         run: cargo test
+      - name: Build and test library without the cli feature
+        run: |
+          cargo build --no-default-features --lib
+          cargo test --no-default-features --lib
       - uses: xberg-io/actions/setup-mise@v1
         with:
           tools: node

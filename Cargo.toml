@@ -10,9 +10,23 @@ repository = "https://github.com/Goldziher/gitfluff"
 homepage = "https://github.com/Goldziher/gitfluff"
 readme = "README.md"
 
+[lib]
+name = "gitfluff"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gitfluff"
+path = "src/main.rs"
+required-features = ["cli"]
+
+[features]
+default = ["cli"]
+# Command line interface; disable with `default-features = false` to use gitfluff as a library.
+cli = ["dep:clap"]
+
 [dependencies]
 anyhow = "1"
-clap = { version = "4.6", features = ["derive"] }
+clap = { version = "4.6", features = ["derive"], optional = true }
 regex = "1"
 serde = { version = "1", features = ["derive"] }
 toml = "1.1"
