@@ -8,7 +8,7 @@ Use MCP server: ai-rulez mcp
 Regenerate: ai-rulez generate
 
 Docs: https://github.com/Goldziher/ai-rulez
-Content-Hash: blake3:e1eb56103c06ae4fb8b89f08b73837cb37476a1e3893c4d71c281dce4a52e5ab
+Content-Hash: blake3:848fe08239a7a01514bc0610f00dfc3924b0fd5cc5cc383974b734052550ddc3
 -->
 
 # gitfluff
@@ -392,7 +392,7 @@ gitfluff is a Rust CLI tool for commit message linting that enforces the Convent
 
 ### Prerequisites
 
-- **Rust 1.70+** - Install via [rustup](https://rustup.rs/).
+- **Rust 1.99+** - Install via [rustup](https://rustup.rs/).
 - **Cargo** - Included with Rust.
 - **poly** - Multi-language linter and formatter (polylint).
 - **mise** - Toolchain and task runner (see [mise.jdx.dev](https://mise.jdx.dev/)); `mise install` installs the pinned tools.
@@ -469,7 +469,7 @@ This sets up commit-msg validation (gitfluff).
 
 ### Prerequisites
 
-- Rust 1.70+ (install via [rustup](https://rustup.rs/))
+- Rust 1.99+ (install via [rustup](https://rustup.rs/))
 - Cargo (included with Rust)
 
 ### Building from Source
