@@ -8,6 +8,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-06
+
 ### Added
 
 - `gitfluff::run`: the clap-free lint runner (`RunOptions`, `RunIo`, `run_lint_with`,

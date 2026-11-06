@@ -54,7 +54,7 @@ cargo install gitfluff
 One-off runs:
 
 ```bash
-pnpm dlx gitfluff@0.10.0 --version
+pnpm dlx gitfluff@0.11.0 --version
 uvx gitfluff --version
 ```
 
@@ -101,7 +101,7 @@ gitfluff is also a Rust library. Disable the default `cli` feature to drop `clap
 
 ```toml
 [dependencies]
-gitfluff = { version = "0.9", default-features = false }
+gitfluff = { version = "0.11", default-features = false }
 ```
 
 ```rust
