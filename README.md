@@ -119,6 +119,11 @@ assert!(outcome.violations_before.is_empty());
 
 `resolve_lint_options` returns the resolved `LintOptions` for use with `lint_message`.
 
+To run the whole `lint` flow (message loading, write-back, diagnostics, exit codes) from a host
+tool, use `gitfluff::run`: build a `RunOptions`, pass your own stdin/stdout/stderr and either a
+resolved config (`run_lint_with_config`) or a loader (`run_lint_with`). A `ConfigSource` names the
+file and rules table (for example `commit.rules` in a host's own config) used in diagnostics.
+
 ## Hooks and tooling
 
 `gitfluff` works with pre-commit, Husky, Lefthook, and raw Git hooks. If you already use a hook manager, just call `gitfluff lint` from your commit-msg hook. It accepts the commit message path as the first argument.
