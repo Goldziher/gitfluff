@@ -54,7 +54,7 @@ cargo install gitfluff
 One-off runs:
 
 ```bash
-pnpm dlx gitfluff@0.10.0 --version
+pnpm dlx gitfluff@0.11.0 --version
 uvx gitfluff --version
 ```
 
@@ -101,7 +101,7 @@ gitfluff is also a Rust library. Disable the default `cli` feature to drop `clap
 
 ```toml
 [dependencies]
-gitfluff = { version = "0.9", default-features = false }
+gitfluff = { version = "0.11", default-features = false }
 ```
 
 ```rust
@@ -118,6 +118,11 @@ assert!(outcome.violations_before.is_empty());
 ```
 
 `resolve_lint_options` returns the resolved `LintOptions` for use with `lint_message`.
+
+To run the whole `lint` flow (message loading, write-back, diagnostics, exit codes) from a host
+tool, use `gitfluff::run`: build a `RunOptions`, pass your own stdin/stdout/stderr and either a
+resolved config (`run_lint_with_config`) or a loader (`run_lint_with`). A `ConfigSource` names the
+file and rules table (for example `commit.rules` in a host's own config) used in diagnostics.
 
 ## Hooks and tooling
 

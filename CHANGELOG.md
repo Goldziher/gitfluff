@@ -8,6 +8,16 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-06
+
+### Added
+
+- `gitfluff::run`: the clap-free lint runner (`RunOptions`, `RunIo`, `run_lint_with`,
+  `run_lint_with_config`, `Reporter`, `ColorChoice`, `parse_exclude_arg`, `parse_cleanup_arg`),
+  available without the `cli` feature, which is now a thin adapter over it.
+- `ConfigSource` and `resolve_lint_options_from`, so a host that embeds gitfluff's config in its own
+  file can name the rules table (such as `commit.rules`) in diagnostics.
+
 ## [0.10.0] - 2026-11-03
 
 ### Added

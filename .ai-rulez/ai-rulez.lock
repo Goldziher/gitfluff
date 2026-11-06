@@ -2,9 +2,9 @@
 # Refresh it with `ai-rulez lock`; `ai-rulez generate --locked` fails when it is stale.
 
 version = 1
-ai_rulez_version = '5.9.8'
+ai_rulez_version = '5.11.1'
 scope = 'all'
-tree = 'sha256:656dc7eca6dbe18d5779ea90d73a98e2aad181c0743bb6c27c0a6d95d6b0ec44'
+tree = 'sha256:49633217da4b05e19ba3e3aae16ba0be5ae162e5f2dcb1ff9112597c164e5e7f'
 
 [[served]]
 name = 'build'
@@ -154,7 +154,7 @@ digest = 'sha256:e0482190e58e4066ef76cb21fc8ddca73421f8a287c4437474ebb3e2964807b
 kind = 'context'
 id = 'development-setup'
 path = 'context/development-setup.md'
-digest = 'sha256:912c7ee4529e35297caf5c44a3104dc6fa761642f3ec8f86ad274262ffcdaf22'
+digest = 'sha256:2e4438b6933095e854ac07ca9ceb8338825abdefbb167d44ee5bc8dce157b5be'
 
 [[item]]
 kind = 'context'
@@ -166,7 +166,7 @@ digest = 'sha256:6d3f000e7190e69cde03ce24d8a4d2fcd39ac8a5053fa5fe70e00112c265591
 kind = 'context'
 id = 'legacy-development-setup'
 path = 'context/legacy-development-setup.md'
-digest = 'sha256:664d7417192832fbf6aac42d6ee032474e2f3ca0fd5419e588d7c247beacfcba'
+digest = 'sha256:2fc0d8bc1b7a78ba1f966ded5052befd381f639eddbcbcbe5fbbb84a56cc8e48'
 
 [[item]]
 kind = 'context'

@@ -112,6 +112,35 @@ pub struct LintSettings {
     pub exit_nonzero_on_rewrite: bool,
 }
 
+/// Where a [`FileConfig`] came from: the file path and the TOML table its `rules` live in.
+///
+/// Only used to word diagnostics. A native gitfluff file keeps its rules in `rules`; a host
+/// that nests them elsewhere sets the dotted table path with [`ConfigSource::with_rules_table`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ConfigSource {
+    /// The file the config was read from.
+    pub path: PathBuf,
+    /// Dotted TOML path of the table holding the rules, such as `rules` or `commit.rules`.
+    pub rules_table: String,
+}
+
+impl ConfigSource {
+    /// A source whose rules sit in the top-level `rules` table, as in `.gitfluff.toml`.
+    pub fn new(path: impl Into<PathBuf>) -> Self {
+        Self {
+            path: path.into(),
+            rules_table: "rules".to_string(),
+        }
+    }
+
+    /// Names the dotted table path holding the rules, for hosts that embed the config.
+    #[must_use]
+    pub fn with_rules_table(mut self, table: impl Into<String>) -> Self {
+        self.rules_table = table.into();
+        self
+    }
+}
+
 /// The result of resolving configuration and overrides.
 #[derive(Debug)]
 pub struct ResolvedLint {
@@ -121,7 +150,7 @@ pub struct ResolvedLint {
     pub write: bool,
     /// Whether a rewrite that leaves the message valid should still exit non-zero.
     pub exit_nonzero_on_rewrite: bool,
-    /// Explanation to show when a lint fails under a custom `[rules.message]`.
+    /// Explanation to show when a lint fails under a custom `message` rule.
     pub custom_pattern_notice: Option<String>,
 }
 
@@ -134,6 +163,24 @@ pub struct ResolvedLint {
 /// Returns an error for an unknown preset, an invalid regex, or a configuration enabling
 /// both `single_line` and `require_body`.
 pub fn resolve_lint_options(config: Option<(&Path, &FileConfig)>, settings: &LintSettings) -> Result<ResolvedLint> {
+    let source = config.map(|(path, _)| ConfigSource::new(path));
+    let config = config.zip(source.as_ref()).map(|((_, cfg), source)| (source, cfg));
+    resolve_lint_options_from(config, settings)
+}
+
+/// Like [`resolve_lint_options`], for a config whose origin is described by a [`ConfigSource`].
+///
+/// The source names the table holding the rules, so a host that embeds gitfluff's
+/// [`FileConfig`] under its own file (for example `[commit.rules]`) gets diagnostics that
+/// point at the table the user actually wrote.
+///
+/// # Errors
+///
+/// Returns an error under the same conditions as [`resolve_lint_options`].
+pub fn resolve_lint_options_from(
+    config: Option<(&ConfigSource, &FileConfig)>,
+    settings: &LintSettings,
+) -> Result<ResolvedLint> {
     let preset_name = settings
         .preset
         .clone()
@@ -151,7 +198,7 @@ pub fn resolve_lint_options(config: Option<(&Path, &FileConfig)>, settings: &Lin
         Some(preset.description.to_string()),
     )?);
 
-    if let Some((path, cfg)) = config
+    if let Some((source, cfg)) = config
         && let Some(rule) = &cfg.rules.message
     {
         message_pattern = Some(build_message_pattern(&rule.pattern, rule.description.clone())?);
@@ -161,12 +208,13 @@ pub fn resolve_lint_options(config: Option<(&Path, &FileConfig)>, settings: &Lin
         // Held back until the lint actually fails. Printing it on every run buried a clean
         // commit under a paragraph of text that only helps once something is rejected.
         custom_pattern_notice = Some(format!(
-            "`[rules.message]` in {} replaces the Conventional Commits spec check: length checks \
+            "`[{table}.message]` in {} replaces the Conventional Commits spec check: length checks \
              are {}, case checks are {} (toggle with `enforce_length` / `enforce_case` under \
-             `[rules.message]`)",
-            path.display(),
+             `[{table}.message]`)",
+            source.path.display(),
             on_off(enforce_line_lengths),
-            on_off(enforce_subject_style)
+            on_off(enforce_subject_style),
+            table = source.rules_table,
         ));
     }
 
