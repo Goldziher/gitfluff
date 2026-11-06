@@ -15,7 +15,7 @@ use crate::api::{
     ConfigSource, LintSettings, git_sequencer_in_progress, has_generated_subject, resolve_lint_options_from,
 };
 use crate::config::{CleanupRuleConfig, ExcludeRuleConfig, FileConfig};
-use crate::lint::lint_message;
+use crate::lint::{LintOutcome, lint_message};
 
 /// Delimiter separating a regex from its custom message or replacement text.
 ///
@@ -161,54 +161,12 @@ where
 
     let resolved = resolve_lint_options_from(loaded_config.as_ref().map(|(source, cfg)| (source, cfg)), &settings)?;
     let mut lint_options = resolved.options;
-    let mut write_requested = resolved.write;
-
-    // A literal message has nowhere to persist a rewrite. An explicit write still prints the
-    // cleaned message to stdout; a `write` that only came from the config is ignored.
-    if write_requested && !settings.write && message.source == MessageSource::Literal {
-        reporter.warn(
-            "`write` is ignored for `--message`: a literal message has nowhere to persist a \
-             rewrite, so violations are reported as-is",
-        )?;
-        write_requested = false;
-    }
+    let write_requested = effective_write(resolved.write, &settings, &message, &mut reporter)?;
 
     lint_options.autofix = write_requested;
     let outcome = lint_message(&message.text, &lint_options);
 
-    let summary_label = if write_requested {
-        "applied cleanup"
-    } else {
-        "cleanup available"
-    };
-    for summary in &outcome.cleanup_summaries {
-        reporter.info(format!("{summary_label}: {summary}"))?;
-    }
-
-    let active_violations = if write_requested {
-        for fixed in outcome
-            .violations_before
-            .iter()
-            .filter(|msg| !outcome.violations_after.contains(msg))
-        {
-            reporter.info(format!("fixed: {fixed}"))?;
-        }
-        for warning in &outcome.warnings_after {
-            reporter.warn(warning)?;
-        }
-        for violation in &outcome.violations_after {
-            reporter.error(violation)?;
-        }
-        &outcome.violations_after
-    } else {
-        for warning in &outcome.warnings_before {
-            reporter.warn(warning)?;
-        }
-        for violation in &outcome.violations_before {
-            reporter.error(violation)?;
-        }
-        &outcome.violations_before
-    };
+    let active_violations = report_outcome(&outcome, write_requested, &mut reporter)?;
 
     if let Some(notice) = &resolved.custom_pattern_notice
         && !active_violations.is_empty()
@@ -230,6 +188,67 @@ where
         return Ok(1);
     }
     Ok(0)
+}
+
+/// Decides whether the cleaned message is written back.
+///
+/// A literal message has nowhere to persist a rewrite. An explicit write still prints the
+/// cleaned message to stdout; a `write` that only came from the config is ignored.
+fn effective_write<W: Write>(
+    requested: bool,
+    settings: &LintSettings,
+    message: &MessageData,
+    reporter: &mut Reporter<W>,
+) -> Result<bool> {
+    if requested && !settings.write && message.source == MessageSource::Literal {
+        reporter.warn(
+            "`write` is ignored for `--message`: a literal message has nowhere to persist a \
+             rewrite, so violations are reported as-is",
+        )?;
+        return Ok(false);
+    }
+    Ok(requested)
+}
+
+/// Reports cleanup summaries, warnings and violations, returning the violations that still apply.
+fn report_outcome<'a, W: Write>(
+    outcome: &'a LintOutcome,
+    write_requested: bool,
+    reporter: &mut Reporter<W>,
+) -> Result<&'a [String]> {
+    let summary_label = if write_requested {
+        "applied cleanup"
+    } else {
+        "cleanup available"
+    };
+    for summary in &outcome.cleanup_summaries {
+        reporter.info(format!("{summary_label}: {summary}"))?;
+    }
+
+    if write_requested {
+        for fixed in outcome
+            .violations_before
+            .iter()
+            .filter(|msg| !outcome.violations_after.contains(msg))
+        {
+            reporter.info(format!("fixed: {fixed}"))?;
+        }
+        for warning in &outcome.warnings_after {
+            reporter.warn(warning)?;
+        }
+        for violation in &outcome.violations_after {
+            reporter.error(violation)?;
+        }
+        Ok(&outcome.violations_after)
+    } else {
+        for warning in &outcome.warnings_before {
+            reporter.warn(warning)?;
+        }
+        for violation in &outcome.violations_before {
+            reporter.error(violation)?;
+        }
+        Ok(&outcome.violations_before)
+    }
 }
 
 /// Folds the raw exclude/cleanup arguments into a copy of the settings.
