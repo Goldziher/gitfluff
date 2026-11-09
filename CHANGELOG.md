@@ -8,6 +8,8 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.2] - 2026-11-09
+
 ### Added
 
 - Scoop: the publish workflow updates `gitfluff.json` in `Goldziher/scoop-bucket` from the release's checksums.

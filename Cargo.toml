@@ -2,7 +2,7 @@
 authors = ["Na'aman Hirschfeld <nhirschfeld@gmail.com>"]
 include = ["/Cargo.toml", "/Cargo.lock", "/src/**", "/README.md"]
 name = "gitfluff"
-version = "0.11.1"
+version = "0.11.2"
 edition = "2024"
 description = "Commit message linting tool with presets, custom formats, and cleanup automation."
 license = "MIT"
