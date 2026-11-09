@@ -8,6 +8,15 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.11.1] - 2026-11-09
+
+### Fixed
+
+- A header that is not `type(scope): subject` reports one error naming the expected shape (or that a space is
+  required after the colon) instead of "subject may not be empty" and "type may not be empty". (#7)
+- A plain `Generated with Claude` banner fails the lint like the emoji banner and the AI co-author trailer, and
+  `--write` also removes its one-line `Generated with [Claude Code](...)` form. (#7)
+
 ## [0.11.0] - 2026-11-06
 
 ### Added
