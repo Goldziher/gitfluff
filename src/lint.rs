@@ -1,5 +1,6 @@
 use anyhow::{Context, Result};
 use regex::Regex;
+use std::sync::LazyLock;
 
 /// Maximum number of characters allowed in the commit title line.
 const MAX_TITLE_LENGTH: usize = 100;
@@ -577,36 +578,30 @@ fn validate_conventional_commitlint_rules(
     // `title_prefix` never silently raises the effective limit.
     errors.extend(validate_title_length(first_line));
 
-    let title_re = Regex::new(r"^(\w*)(?:\((.*)\))?!?: (.*)$").expect("valid conventional title regex");
-    let (ty, subject) = title_re
-        .captures(title_line)
-        .map(|caps| {
-            (
-                caps.get(1).map(|m| m.as_str()).unwrap_or(""),
-                caps.get(3).map(|m| m.as_str()).unwrap_or(""),
-            )
-        })
-        .unwrap_or(("", ""));
-
     let allowed_types = [
         "build", "chore", "ci", "docs", "feat", "fix", "perf", "refactor", "revert", "style", "test",
     ];
 
-    if subject.trim().is_empty() {
-        errors.push("subject may not be empty".to_string());
-    } else {
-        errors.append(&mut validate_subject_style(subject));
-    }
+    match parse_conventional_header(title_line) {
+        Ok((ty, subject)) => {
+            if subject.trim().is_empty() {
+                errors.push("subject may not be empty".to_string());
+            } else {
+                errors.append(&mut validate_subject_style(subject));
+            }
 
-    if ty.trim().is_empty() {
-        errors.push("type may not be empty".to_string());
-    } else {
-        if ty != ty.to_lowercase() {
-            errors.push("type must be lower-case".to_string());
+            if ty.trim().is_empty() {
+                errors.push("type may not be empty".to_string());
+            } else {
+                if ty != ty.to_lowercase() {
+                    errors.push("type must be lower-case".to_string());
+                }
+                if !allowed_types.contains(&ty) {
+                    errors.push(format!("type must be one of [{}]", allowed_types.join(", ")));
+                }
+            }
         }
-        if !allowed_types.contains(&ty) {
-            errors.push(format!("type must be one of [{}]", allowed_types.join(", ")));
-        }
+        Err(shape_error) => errors.push(shape_error.to_string()),
     }
 
     let (body_lines, footer_lines, footer_token_index) = split_body_and_footer(&rest);
@@ -669,6 +664,28 @@ fn validate_conventional_commitlint_rules(
     }
 
     (errors, warnings)
+}
+
+/// Splits a conventional header into its type and subject.
+///
+/// A header that is not `type(scope): subject` gets one error naming the shape problem, rather
+/// than separate "type"/"subject may not be empty" errors for parts the user did write. A header
+/// whose colon ends the line still parses, with an empty subject.
+fn parse_conventional_header(title: &str) -> Result<(&str, &str), &'static str> {
+    static TITLE_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^(\w*)(?:\(.*\))?!?:(?: (.*))?$").expect("valid conventional title regex"));
+    static NO_SPACE_RE: LazyLock<Regex> =
+        LazyLock::new(|| Regex::new(r"^\w*(?:\(.*\))?!?:\S").expect("valid colon-spacing regex"));
+
+    if let Some(caps) = TITLE_RE.captures(title) {
+        let ty = caps.get(1).map_or("", |m| m.as_str());
+        let subject = caps.get(2).map_or("", |m| m.as_str());
+        return Ok((ty, subject));
+    }
+    if NO_SPACE_RE.is_match(title) {
+        return Err("header must have a space after the colon: `type(scope): subject`");
+    }
+    Err("header must be `type(scope): subject`")
 }
 
 fn split_body_and_footer<'a>(rest_lines: &'a [&'a str]) -> (Vec<&'a str>, Vec<&'a str>, Option<usize>) {
@@ -896,6 +913,38 @@ mod tests {
                 .iter()
                 .any(|msg| msg == "Trim trailing whitespace")
         );
+    }
+
+    fn conventional_violations(message: &str) -> Vec<String> {
+        let mut options = LintOptions::default();
+        options.enforce_conventional_spec = true;
+        lint_message(message, &options).violations_before
+    }
+
+    #[test]
+    fn header_without_conventional_shape_reports_one_shape_error() {
+        assert_eq!(
+            conventional_violations("added stuff"),
+            ["header must be `type(scope): subject`"]
+        );
+    }
+
+    #[test]
+    fn header_without_space_after_colon_reports_missing_space() {
+        for message in ["feat:no space", "feat(api):no space", "feat!:no space"] {
+            assert_eq!(
+                conventional_violations(message),
+                ["header must have a space after the colon: `type(scope): subject`"],
+                "{message}"
+            );
+        }
+    }
+
+    #[test]
+    fn header_with_empty_type_or_subject_reports_the_empty_part() {
+        assert_eq!(conventional_violations(": some message"), ["type may not be empty"]);
+        assert_eq!(conventional_violations("fix:"), ["subject may not be empty"]);
+        assert_eq!(conventional_violations("fix: "), ["subject may not be empty"]);
     }
 
     #[test]

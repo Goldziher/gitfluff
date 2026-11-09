@@ -197,7 +197,7 @@ fn commitlint_conventional_parity_suite() {
     run("fix:")
         .failure()
         .stderr(predicate::str::contains("subject may not be empty"))
-        .stderr(predicate::str::contains("type may not be empty"));
+        .stderr(predicate::str::contains("type may not be empty").not());
 
     run("fix: some message.")
         .failure()
@@ -1217,7 +1217,7 @@ fn lint_still_checks_a_reworded_message_during_an_interactive_rebase() {
             .current_dir(dir.path())
             .assert()
             .failure()
-            .stderr(predicate::str::contains("type may not be empty"));
+            .stderr(predicate::str::contains("header must be `type(scope): subject`"));
     }
 
     // A subject git generated itself is still exempt, rebase or not.
@@ -1271,7 +1271,7 @@ fn lint_does_not_skip_a_literal_message_while_a_merge_is_in_progress() {
         .current_dir(dir.path())
         .assert()
         .failure()
-        .stderr(predicate::str::contains("type may not be empty"));
+        .stderr(predicate::str::contains("header must be `type(scope): subject`"));
 }
 
 #[test]
@@ -1664,5 +1664,60 @@ fn lint_validates_unrelated_files_while_a_merge_is_in_progress() {
         .current_dir(dir.path())
         .assert()
         .code(1)
-        .stderr(predicate::str::contains("type may not be empty"));
+        .stderr(predicate::str::contains("header must be `type(scope): subject`"));
+}
+
+#[test]
+fn lint_reports_one_clear_error_for_a_non_conventional_header() {
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--message", "added stuff"])
+        .assert()
+        .code(1)
+        .stderr("gitfluff: error: header must be `type(scope): subject`\n");
+
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--message", "feat:no space"])
+        .assert()
+        .code(1)
+        .stderr("gitfluff: error: header must have a space after the colon: `type(scope): subject`\n");
+}
+
+#[test]
+fn lint_fails_for_plain_claude_generation_banner() {
+    let dir = tempdir().unwrap();
+    let msg_path = dir.path().join("msg.txt");
+    for banner in [
+        "Generated with Claude Code",
+        "  generated with [Claude Code](https://claude.com/claude-code)",
+    ] {
+        write_message(&msg_path, format!("feat: add login\n\n{banner}\n"));
+
+        cargo::cargo_bin_cmd!("gitfluff")
+            .args(["lint", "--from-file"])
+            .arg(&msg_path)
+            .assert()
+            .code(1)
+            .stderr(predicate::str::contains(
+                "Remove AI generation notices from commit messages",
+            ));
+
+        cargo::cargo_bin_cmd!("gitfluff")
+            .args(["lint", "--write", "--from-file"])
+            .arg(&msg_path)
+            .assert()
+            .success();
+        assert_eq!(
+            fs::read_to_string(&msg_path).unwrap().trim_end(),
+            "feat: add login",
+            "{banner}"
+        );
+    }
+}
+
+#[test]
+fn lint_allows_generated_with_text_that_is_not_ai_attribution() {
+    cargo::cargo_bin_cmd!("gitfluff")
+        .args(["lint", "--message", "feat: add parser\n\nGenerated with protoc 3.21"])
+        .assert()
+        .success();
 }
