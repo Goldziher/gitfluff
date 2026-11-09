@@ -45,9 +45,17 @@ npm (checksums verified before extraction):
 pnpm add -g gitfluff
 ```
 
-Cargo:
+Scoop (Windows):
+
+```powershell
+scoop bucket add goldziher https://github.com/Goldziher/scoop-bucket
+scoop install gitfluff
+```
+
+Cargo (prebuilt with `cargo binstall`, or built from source):
 
 ```bash
+cargo binstall gitfluff
 cargo install gitfluff
 ```
 

@@ -8,6 +8,11 @@ to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Scoop: the publish workflow updates `gitfluff.json` in `Goldziher/scoop-bucket` from the release's checksums.
+- `cargo binstall gitfluff` metadata names the release archives, including the GNU Windows build for MSVC hosts.
+
 ## [0.11.1] - 2026-11-09
 
 ### Fixed
