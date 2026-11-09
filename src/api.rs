@@ -22,6 +22,12 @@ const AI_EXCLUDE_RULES: &[(&str, &str)] = &[
         "Remove AI co-author attribution lines",
     ),
     ("🤖 Generated with", "Remove AI generation notices from commit messages"),
+    // The plain banner without the emoji. Line-anchored, matching the cleanup rule below, so
+    // `--write` always removes what this flags.
+    (
+        "(?mi)^[ \\t]*Generated with \\[?Claude",
+        "Remove AI generation notices from commit messages",
+    ),
 ];
 
 /// Built-in cleanup rules for AI attribution.
@@ -47,7 +53,7 @@ const AI_CLEANUP_RULES: &[(&str, &str, &str)] = &[
         "Remove AI generation banner",
     ),
     (
-        "(?mi)^[ \\t]*Generated with Claude[^\\n]*$\\n?",
+        "(?mi)^[ \\t]*Generated with \\[?Claude[^\\n]*$\\n?",
         "",
         "Remove plain Claude generation banner",
     ),
