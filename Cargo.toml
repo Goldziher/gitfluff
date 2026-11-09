@@ -10,6 +10,20 @@ repository = "https://github.com/Goldziher/gitfluff"
 homepage = "https://github.com/Goldziher/gitfluff"
 readme = "README.md"
 
+# Release archives hold the binary at the top level. Windows ships only the GNU build, which an
+# MSVC host runs as is. `{ archive-suffix }` carries its own leading dot.
+[package.metadata.binstall]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-{ target }{ archive-suffix }"
+pkg-fmt = "tgz"
+bin-dir = "{ bin }{ binary-ext }"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-msvc]
+pkg-url = "{ repo }/releases/download/v{ version }/{ name }-x86_64-pc-windows-gnu{ archive-suffix }"
+pkg-fmt = "zip"
+
+[package.metadata.binstall.overrides.x86_64-pc-windows-gnu]
+pkg-fmt = "zip"
+
 [lib]
 name = "gitfluff"
 path = "src/lib.rs"

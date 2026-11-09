@@ -271,6 +271,55 @@ jobs:
           packages-dir: pip-package/dist
           skip-existing: true
 
+  # Non-blocking: the bucket lives in another repository and is pushed with a PAT. A failure is a
+  # channel that did not update, reported as a red job, and nothing depends on it.
+  publish_scoop:
+    name: Update Scoop bucket
+    needs: [meta, release_assets]
+    if: >-
+      !cancelled() && needs.meta.result == 'success' &&
+      (needs.release_assets.result == 'success' || needs.release_assets.result == 'skipped') &&
+      !contains(needs.meta.outputs.version, '-')
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    permissions:
+      contents: read
+    steps:
+      # The workflow commit, not the tag: the manifest task may postdate the tagged tree.
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup mise
+        uses: xberg-io/actions/setup-mise@v1
+
+      - name: Update the bucket manifest
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          HOMEBREW_TOKEN: ${{ secrets.HOMEBREW_TOKEN }}
+        run: |
+          set -euo pipefail
+          version="${{ needs.meta.outputs.version }}"
+          tag="${{ needs.meta.outputs.tag }}"
+          if [ -z "${HOMEBREW_TOKEN:-}" ]; then
+            echo "::error::HOMEBREW_TOKEN is not set, so Goldziher/scoop-bucket cannot be updated" >&2
+            exit 1
+          fi
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern "gitfluff_${version}_checksums.txt" --dir sums --clobber
+          mise run release:scoop-manifest "$version" "sums/gitfluff_${version}_checksums.txt" > gitfluff.json
+
+          git clone --depth 1 "https://x-access-token:${HOMEBREW_TOKEN}@github.com/Goldziher/scoop-bucket.git" bucket
+          cp gitfluff.json bucket/bucket/gitfluff.json
+          cd bucket
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add bucket/gitfluff.json
+          if git diff --cached --quiet; then
+            echo "Manifest already up to date."
+          else
+            git commit -m "gitfluff ${version}"
+            git push
+          fi
+
   # Called explicitly rather than left to release-homebrew.yml's `release: published` trigger:
   # goreleaser publishes the release with GITHUB_TOKEN, and GitHub does not raise workflow events
   # for that token, so the tap would silently stay on the previous version. Wait for the GitHub
